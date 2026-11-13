@@ -1,53 +1,33 @@
 package helpers;
 
-import java.io.File;
 import java.io.FileNotFoundException;
-import java.net.URISyntaxException;
-import java.util.Scanner;
-import java.util.logging.Level;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import javafx.application.Application;
-import javafx.scene.media.Media;
-import javafx.scene.media.MediaPlayer;
 
-// methods in this class should not be dependent on anything relative
-public class CommonUtils {
-  /**
-   * @author Dalton Smith CommonUtils Various utility methods used throughout the application
-   *     https://code.makery.ch/blog/javafx-dialogs-official/
-   */
+public final class CommonUtils {
+  private CommonUtils() {}
+
   public static Application application;
 
   public static String getCurrentDir() {
     return System.getProperty("user.dir");
   }
 
-  public static String readFile(String filePath) throws FileNotFoundException {
-    File file = new File(filePath);
-    Scanner sc = new Scanner(file);
-
-    StringBuilder result = new StringBuilder();
-
-    // read the entire json
-    while (sc.hasNext()) {
-      result.append(sc.next());
-    }
-
-    return result.toString();
+  public static Path getDataDir() {
+    String configured = System.getenv("TEAM293_TIME_DATA_DIR");
+    return configured == null || configured.isBlank()
+        ? Path.of(System.getProperty("user.home"), ".team293-time")
+        : Path.of(configured).toAbsolutePath();
   }
 
-  public void playDing() {
-
-    Media sound;
+  public static String readFile(String filePath) throws FileNotFoundException {
     try {
-      sound = new Media(getClass().getResource("/sounds/ding.wav").toURI().toString());
-
-    } catch (URISyntaxException e) {
-      LoggingUtils.log(Level.SEVERE, e);
-      return;
+      return Files.readString(Path.of(filePath));
+    } catch (IOException e) {
+      throw new FileNotFoundException("Unable to read configuration.");
     }
-
-    MediaPlayer mediaPlayer = new MediaPlayer(sound);
-    mediaPlayer.play();
   }
 
   public static void exitApplication() {

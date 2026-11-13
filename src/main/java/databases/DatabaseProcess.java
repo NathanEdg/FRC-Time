@@ -3,385 +3,236 @@ package databases;
 import activities.LocalDbActivity;
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
+import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
-import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.JsonFactory;
-import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.client.util.store.FileDataStoreFactory;
 import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.SheetsScopes;
 import com.google.api.services.sheets.v4.model.*;
-import helpers.AlertUtils;
 import helpers.CommonUtils;
 import helpers.Constants;
-import helpers.LoggingUtils;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.*;
+import java.io.Reader;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
-import java.util.logging.Level;
-import javafx.application.HostServices;
+import java.util.Map;
+import javafx.application.Platform;
 
-public class DatabaseProcess {
-  /**
-   * @author Dalton Smith DatabaseProcess Manages low level google sheets handling from API Uses the
-   *     power of black magic to manage the google sheet Based on Java QuickStart
-   */
-  private static final String APPLICATION_NAME = "GrizzlyTime JavaFX Edition";
+public class DatabaseProcess implements SheetStore {
+  private final Sheets service;
+  private final String spreadsheet;
+  private final Map<Integer, SheetProperties> sheets = new HashMap<>();
 
-  private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
-  private static final String TOKENS_DIRECTORY_PATH = "tokens";
-
-  private static final List<String> SCOPES = Collections.singletonList(SheetsScopes.SPREADSHEETS);
-  private static final String CREDENTIALS_FILE_PATH = "/credentials/credentials.json";
-
-  private AlertUtils util = new AlertUtils();
-
-  private static final String spreadsheet = LocalDbActivity.kSheetId;
-
-  private static final String mainPage = "Current";
-  private static final String logPage = "Date Log";
-  private static final String regPage = "Student Registration";
-
-  public static boolean worksheetIsEmpty = false;
-
-  // based upon the Java Google Sheets quickstart
-  // settings google sheets logging level to SEVERE only
-  private static <LocalServerReceiver> Credential getCredentials(
-      final NetHttpTransport HTTP_TRANSPORT) throws IOException {
-    // set google logging level to severe due to permissions bug, see
-    // https://github.com/googleapis/google-http-java-client/issues/315
-    java.util.logging.Logger.getLogger(FileDataStoreFactory.class.getName()).setLevel(Level.SEVERE);
-
-    // Load client secrets.
-    InputStream in = DatabaseProcess.class.getResourceAsStream(CREDENTIALS_FILE_PATH);
-
-    if (in == null) {
-      LoggingUtils.log(
-          Level.SEVERE,
-          "Credentials file was not loaded, check that the credentials file is in the resources directory!");
-      CommonUtils.exitApplication();
+  public DatabaseProcess() {
+    spreadsheet = LocalDbActivity.kSheetId;
+    try {
+      NetHttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
+      service =
+          new Sheets.Builder(transport, GsonFactory.getDefaultInstance(), credentials(transport))
+              .setApplicationName(Constants.kApplicationName)
+              .setHttpRequestInitializer(
+                  request -> {
+                    credentialsForRequest.initialize(request);
+                    request.setConnectTimeout(15000);
+                    request.setReadTimeout(30000);
+                  })
+              .build();
+      initializeSheets();
+    } catch (IOException | GeneralSecurityException e) {
+      throw new IllegalStateException(
+          "Could not connect to Google Sheets. Check credentials, sheet permissions, and internet.");
     }
+  }
 
-    GoogleClientSecrets clientSecrets =
-        GoogleClientSecrets.load(JSON_FACTORY, new InputStreamReader(in));
+  private Credential credentialsForRequest;
 
-    // Build flow and trigger user authorization request.
+  DatabaseProcess(Sheets service, String spreadsheet) throws IOException {
+    this.service = service;
+    this.spreadsheet = spreadsheet;
+    initializeSheets();
+  }
+
+  private Credential credentials(NetHttpTransport transport) throws IOException {
+    String override = System.getenv("TEAM293_TIME_CREDENTIALS");
+    Path path =
+        override == null || override.isBlank()
+            ? CommonUtils.getDataDir().resolve("credentials.json")
+            : Path.of(override);
+    if (!Files.isRegularFile(path)) {
+      throw new IOException("OAuth credentials are missing.");
+    }
+    GoogleClientSecrets secrets;
+    try (Reader input = Files.newBufferedReader(path)) {
+      secrets = GoogleClientSecrets.load(GsonFactory.getDefaultInstance(), input);
+    }
     GoogleAuthorizationCodeFlow flow =
-        new GoogleAuthorizationCodeFlow.Builder(HTTP_TRANSPORT, JSON_FACTORY, clientSecrets, SCOPES)
-            .setDataStoreFactory(new FileDataStoreFactory(new java.io.File(TOKENS_DIRECTORY_PATH)))
+        new GoogleAuthorizationCodeFlow.Builder(
+                transport,
+                GsonFactory.getDefaultInstance(),
+                secrets,
+                List.of(SheetsScopes.SPREADSHEETS))
+            .setDataStoreFactory(
+                new FileDataStoreFactory(CommonUtils.getDataDir().resolve("tokens").toFile()))
             .setAccessType("offline")
             .build();
-
-    return new AuthorizationCodeInstalledApp(
-            flow,
-            new com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver(),
-            new AuthorizationCodeInstalledApp.Browser() {
-              @Override
-              public void browse(String url) {
-                LoggingUtils.log(
-                    Level.INFO, "Or navigate to " + url + " to authorize the application.");
-                // fix for java8 launching on linux because weird shit
-                HostServices hostServices = CommonUtils.application.getHostServices();
-                try {
-                  hostServices.showDocument(url);
-                } catch (NullPointerException e) {
-                  LoggingUtils.log(
-                      Level.INFO,
-                      "HostServices failed, please navigate to "
-                          + url
-                          + " to authorize the application.");
-                }
-              }
-            })
-        .authorize("user");
+    credentialsForRequest =
+        new AuthorizationCodeInstalledApp(
+                flow,
+                new LocalServerReceiver.Builder().setPort(8888).build(),
+                url ->
+                    Platform.runLater(
+                        () -> CommonUtils.application.getHostServices().showDocument(url)))
+            .authorize("user");
+    return credentialsForRequest;
   }
 
-  // return a list of rows and columns of a specified sheet
-  public List<List<Object>> returnWorksheetData(int page) {
-
-    try {
-      String range = getPage(page);
-
-      final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
-      Sheets service =
-          new Sheets.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
-              .setApplicationName(APPLICATION_NAME)
-              .build();
-
-      return getDataFromSheet(service, range);
-
-    } catch (NoRouteToHostException | UnknownHostException e) {
-      LoggingUtils.log(Level.SEVERE, e);
-      util.createAlert(
-          "ERROR",
-          "No Network Connection",
-          "Please confirm your network connection and try again.");
-
-      CommonUtils.exitApplication();
-      return null;
-
-    } catch (GeneralSecurityException e2) {
-      LoggingUtils.log(Level.SEVERE, e2);
-      util.createAlert(
-          "ERROR", "Invalid Credentials", "Please delete the 'tokens' directory and try again!");
-
-      CommonUtils.exitApplication();
-      return null;
-
-    } catch (GoogleJsonResponseException e) {
-      LoggingUtils.log(Level.SEVERE, e.getDetails().getMessage());
-
-      try {
-        if (e.getDetails().getMessage().contains("Unable to parse range")) {
-          LoggingUtils.log(Level.WARNING, "Attempting to create our sheets");
-
-          final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
-          Sheets service =
-              new Sheets.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
-                  .setApplicationName(APPLICATION_NAME)
-                  .build();
-
-          ArrayList<Request> requests = new ArrayList<>();
-
-          // add our sheets to the list of sheets to be processed
-          if (e.getDetails().getMessage().contains("Current")) {
-            requests.add(
-                new Request()
-                    .setAddSheet(
-                        new AddSheetRequest()
-                            .setProperties(new SheetProperties().setTitle("Current"))));
-            LoggingUtils.log(Level.INFO, "Creating Current Sheet");
-          }
-
-          if (e.getDetails().getMessage().contains("Date Log")) {
-            requests.add(
-                new Request()
-                    .setAddSheet(
-                        new AddSheetRequest()
-                            .setProperties(new SheetProperties().setTitle("Date Log"))));
-            LoggingUtils.log(Level.INFO, "Creating Date Log Sheet");
-          }
-
-          BatchUpdateSpreadsheetRequest body =
-              new BatchUpdateSpreadsheetRequest().setRequests(requests);
-
-          BatchUpdateSpreadsheetResponse updateResponse =
-              service.spreadsheets().batchUpdate(spreadsheet, body).execute();
-
-          LoggingUtils.log(Level.INFO, updateResponse.getReplies().toString());
-
-          String range = getPage(page);
-
-          return getDataFromSheet(service, range);
+  private void initializeSheets() throws IOException {
+    Spreadsheet metadata =
+        service.spreadsheets().get(spreadsheet).setFields("sheets.properties").execute();
+    List<Request> missing = new ArrayList<>();
+    for (int page : new int[] {Constants.kMainSheet, Constants.kLogSheet}) {
+      for (Sheet sheet : metadata.getSheets()) {
+        if (pageName(page).equals(sheet.getProperties().getTitle())) {
+          sheets.put(page, sheet.getProperties());
         }
-
-        LoggingUtils.log(Level.SEVERE, "Unknown exception");
-        LoggingUtils.log(Level.SEVERE, e);
-        CommonUtils.exitApplication();
-        return null;
-
-      } catch (Exception e2) {
-        LoggingUtils.log(Level.SEVERE, e);
-        util.createAlert(
-            "ERROR", "Error creating sheets", "Specified sheets do not exist, failed to create");
-
-        CommonUtils.exitApplication();
-        return null;
       }
-
-      // attempt to create our sheets
-
-    } catch (IOException e3) {
-      LoggingUtils.log(Level.SEVERE, e3);
-
-      util.createAlert(
-          "ERROR",
-          "Error connecting to database",
-          "Please confirm that the URL is valid and that you have internet access.");
-
-      CommonUtils.exitApplication();
-      return null;
+      if (!sheets.containsKey(page)) {
+        missing.add(
+            new Request()
+                .setAddSheet(
+                    new AddSheetRequest()
+                        .setProperties(new SheetProperties().setTitle(pageName(page)))));
+      }
     }
-  }
-
-  private List<List<Object>> getDataFromSheet(Sheets service, String range) throws IOException {
-    ValueRange response = null;
-
-    try {
-      response = service.spreadsheets().values().get(spreadsheet, range).execute();
-
-    } catch (NoRouteToHostException e) {
-      LoggingUtils.log(Level.SEVERE, "No route to host!");
-      util.createAlert(
-          "ERROR",
-          "No Route to Host",
-          "Unable to connect to the database, check internet connection and restart the application.");
-      CommonUtils.exitApplication();
-
-    } catch (SocketTimeoutException e) {
-      LoggingUtils.log(Level.SEVERE, "Connection timed out!");
-      util.createAlert(
-          "ERROR",
-          "Connection timed out",
-          "Connecting to database took too long! Please check your internet connection and retry!");
-      CommonUtils.exitApplication();
-    }
-
-    if (response.getValues() == null) {
-      worksheetIsEmpty = true;
-    }
-
-    return response.getValues();
-  }
-
-  public void updateSpreadSheet(int row, int column, String data, int page) {
-
-    // Build a new authorized API client service.
-    String columnLetter = toAlphabetic(column - 1);
-
-    String range = columnLetter + row;
-    String sheetPage = getPage(page);
-    range = sheetPage + "!" + range;
-
-    ValueRange requestBody = new ValueRange();
-    requestBody.setValues(Collections.singletonList(Collections.singletonList(data)));
-
-    try {
-      final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
-      Sheets service =
-          new Sheets.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
-              .setApplicationName(APPLICATION_NAME)
-              .build();
-
+    if (!missing.isEmpty()) {
       service
           .spreadsheets()
-          .values()
-          .update(spreadsheet, range, requestBody)
-          .setValueInputOption("RAW")
+          .batchUpdate(spreadsheet, new BatchUpdateSpreadsheetRequest().setRequests(missing))
           .execute();
+      initializeSheets();
+    }
+  }
 
-    } catch (GeneralSecurityException e) {
-      LoggingUtils.log(Level.SEVERE, "INVALID CREDENTIALS");
-
-    } catch (GoogleJsonResponseException e) {
-      if (e.getDetails().getMessage().contains("exceeds grid limits")) {
-        LoggingUtils.log(Level.WARNING, "Appending Data");
-        try {
-          final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
-          Sheets service =
-              new Sheets.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
-                  .setApplicationName(APPLICATION_NAME)
-                  .build();
-
+  @Override
+  public List<List<Object>> read(int page) {
+    try {
+      List<List<Object>> values =
           service
               .spreadsheets()
               .values()
-              .append(spreadsheet, range, requestBody)
-              .setValueInputOption("RAW")
-              .execute();
-
-        } catch (IOException e1) {
-          LoggingUtils.log(Level.SEVERE, e);
-
-        } catch (GeneralSecurityException e1) {
-          LoggingUtils.log(Level.SEVERE, e);
-          util.createAlert(
-              "ERROR",
-              "Invalid Credentials",
-              "You do not have permission to edit this spreadsheet!");
-        }
-
-      } else {
-        LoggingUtils.log(Level.SEVERE, e);
+              .get(spreadsheet, "'" + pageName(page) + "'")
+              .execute()
+              .getValues();
+      if (values == null || values.isEmpty()) {
+        return List.of();
       }
-
-    } catch (IOException e2) {
-      LoggingUtils.log(Level.SEVERE, e2);
-      // do nothing
-
+      return values;
+    } catch (IOException e) {
+      throw new IllegalStateException(
+          "Could not read attendance. Check your internet connection and sheet permissions, then retry.");
     }
   }
 
-  public void updateSpreadSheetBatch(ArrayList<BatchUpdateData> batchData, int page) {
+  @Override
+  public void write(List<Cell> cells) {
+    if (cells.isEmpty()) {
+      return;
+    }
     try {
-      LoggingUtils.log(Level.INFO, "Batch updating sheet");
-      final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
-      Sheets service =
-          new Sheets.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
-              .setApplicationName(APPLICATION_NAME)
-              .build();
-
-      List<ValueRange> requestData = new ArrayList<>();
-
-      for (BatchUpdateData data : batchData) {
-        // Build a new authorized API client service.
-        String columnLetter = toAlphabetic(data.getColumn() - 1);
-
-        String range = columnLetter + data.getRow();
-
-        String sheetPage = getPage(page);
-        range = sheetPage + "!" + range;
-
-        requestData.add(
+      ensureCapacity(cells);
+      List<ValueRange> data = new ArrayList<>();
+      for (Cell cell : cells) {
+        if (cell.row() < 0 || cell.column() < 0) {
+          throw new IllegalArgumentException("Invalid sheet cell.");
+        }
+        data.add(
             new ValueRange()
-                .setRange(range)
-                .setValues(Collections.singletonList(Collections.singletonList(data.getData()))));
+                .setRange(
+                    "'"
+                        + pageName(cell.page())
+                        + "'!"
+                        + toAlphabetic(cell.column())
+                        + (cell.row() + 1))
+                .setValues(List.of(List.of(cell.value()))));
       }
-
-      BatchUpdateValuesRequest batchBody =
-          new BatchUpdateValuesRequest().setValueInputOption("RAW").setData(requestData);
-
-      // TODO check response
-      service.spreadsheets().values().batchUpdate(spreadsheet, batchBody).execute();
-
-    } catch (GeneralSecurityException e) {
-      LoggingUtils.log(Level.SEVERE, "INVALID CREDENTIALS");
-
-    } catch (IOException e2) {
-      LoggingUtils.log(Level.SEVERE, e2);
-      // do nothing
-
+      service
+          .spreadsheets()
+          .values()
+          .batchUpdate(
+              spreadsheet, new BatchUpdateValuesRequest().setValueInputOption("RAW").setData(data))
+          .execute();
+    } catch (IOException e) {
+      throw new IllegalStateException(
+          "Attendance could not be saved. Check the sheet before retrying to avoid a duplicate.");
     }
   }
 
-  // update current working page
-  private String getPage(int page) {
-    switch (page) {
-      case Constants.kMainSheet:
-        return mainPage;
-
-      case Constants.kLogSheet:
-        return logPage;
-
-      case Constants.kRegistrationSheet:
-        return regPage;
-
-      default:
-        return mainPage;
+  private void ensureCapacity(List<Cell> cells) throws IOException {
+    initializeSheets();
+    Map<Integer, int[]> required = new HashMap<>();
+    for (Cell cell : cells) {
+      int[] size = required.computeIfAbsent(cell.page(), ignored -> new int[] {0, 0});
+      size[0] = Math.max(size[0], cell.row() + 1);
+      size[1] = Math.max(size[1], cell.column() + 1);
+    }
+    List<Request> requests = new ArrayList<>();
+    for (Map.Entry<Integer, int[]> entry : required.entrySet()) {
+      SheetProperties sheet = sheets.get(entry.getKey());
+      GridProperties grid = sheet.getGridProperties();
+      int rows = Math.max(grid.getRowCount(), entry.getValue()[0]);
+      int columns = Math.max(grid.getColumnCount(), entry.getValue()[1]);
+      if (rows != grid.getRowCount() || columns != grid.getColumnCount()) {
+        if (rows > grid.getRowCount()) {
+          requests.add(
+              new Request()
+                  .setAppendDimension(
+                      new AppendDimensionRequest()
+                          .setSheetId(sheet.getSheetId())
+                          .setDimension("ROWS")
+                          .setLength(rows - grid.getRowCount())));
+        }
+        if (columns > grid.getColumnCount()) {
+          requests.add(
+              new Request()
+                  .setAppendDimension(
+                      new AppendDimensionRequest()
+                          .setSheetId(sheet.getSheetId())
+                          .setDimension("COLUMNS")
+                          .setLength(columns - grid.getColumnCount())));
+        }
+      }
+    }
+    if (!requests.isEmpty()) {
+      service
+          .spreadsheets()
+          .batchUpdate(spreadsheet, new BatchUpdateSpreadsheetRequest().setRequests(requests))
+          .execute();
+      initializeSheets();
     }
   }
 
-  public static String toAlphabetic(int i) {
-    if (i < 0) {
-      return "-" + toAlphabetic(-i - 1);
-    }
+  private static String pageName(int page) {
+    return switch (page) {
+      case Constants.kMainSheet -> "Current";
+      case Constants.kLogSheet -> "Date Log";
+      default -> throw new IllegalArgumentException("Unknown attendance worksheet.");
+    };
+  }
 
-    int quot = i / 26;
-    int rem = i % 26;
-    char letter = (char) ((int) 'A' + rem);
-    if (quot == 0) {
-      return "" + letter;
-
-    } else {
-      return toAlphabetic(quot - 1) + letter;
+  public static String toAlphabetic(int column) {
+    if (column < 0) {
+      throw new IllegalArgumentException("Column must be nonnegative.");
     }
+    int quotient = column / 26;
+    char letter = (char) ('A' + column % 26);
+    return quotient == 0 ? String.valueOf(letter) : toAlphabetic(quotient - 1) + letter;
   }
 }

@@ -1,203 +1,107 @@
-/*
-Main Screen CSS
- */
-
-#main {
-    -fx-font-family: "Calibri";
-    -fx-background-color: #D0BB61;
-}
-
-.button {
-    -fx-font-size: 16px;
-    -fx-border-width: 0;
-    -fx-outline: none;
-    -fx-background-color: lightgrey;
-    -fx-background-radius: 0;
-}
-
-.button:hover {
-    -fx-background-color: #acacac;
-}
-
-#title {
-    -fx-font-size: 25px;
-    -fx-text-alignment: center;
-    -fx-padding: 0px, 20px, 0px, 0px;
-
-}
-
-#messageText {
-    -fx-font-size: 18px;
-    -fx-text-alignment: center;
-    -fx-text-fill: #b00805;
-}
-
-#textBox {
-    -fx-font-size: 18px;
-    -fx-background-color: WHITE;
-    -fx-font-weight: BOLD;
-    -fx-prompt-text-fill: #808080;
-    -fx-alignment: top-left;
-    -fx-border-radius: 0px;
-    -fx-background-radius: 0;
-    -fx-min-height: 34px;
-
-}
-
-#confirmButton {
-    -fx-font-size: 18px;
-    -fx-border-width: 0;
-    -fx-alignment: top-left;
-    -fx-outline: none;
-    -fx-background-color: lightgrey;
-    -fx-background-radius: 0;
-}
-
-#confirmButton:hover {
-    -fx-background-color: #acacac;
-}
-
-#bottomPane {
-    -fx-padding: 3px;
-}
-
-#textDescription {
-    -fx-font-size: 18px;
-    -fx-padding: 0px;
-}
-
-#bottomView {
-    -fx-border-width: 3px;
-    -fx-border-color: black;
-    -fx-border-style: solid;
-    -fx-max-width: 250px;
-    -fx-padding: 15px;
-    -fx-border-radius: 3px;
-    -fx-background-color: #d9c575;
-}
-
-#hyperlinkBottom {
-    -fx-font-fill: #000000;
+/* Team 293 Time · gold, charcoal, silver */
+.root {
+    -fx-font-family: "System";
     -fx-font-size: 15px;
-    -fx-text-fill: #000000;
+    -fx-background-color: #f7f6f1;
+    -fx-text-fill: #282923;
+    -fx-accent: #a07c17;
+    -fx-focus-color: #a07c17;
+    -fx-faint-focus-color: transparent;
 }
-
-#creditsButton:hover {
-    -fx-background-color: lightgrey;
+.label { -fx-text-fill: #282923; }
+#kiosk { -fx-background-color: #f7f6f1; }
+.app-header {
+    -fx-padding: 20px 32px;
+    -fx-background-color: #272923;
 }
-
-#creditsMainContent {
-    -fx-padding: 5px;
-}
-
-#title {
-    -fx-font-size: 30px;
-    -fx-text-alignment: center;
-}
-
-#navMenu {
-    -fx-background-color: #d9c575;
-    -fx-padding: 5px;
-}
-
-#navMenuButton {
-    -fx-border-radius: 10px;
-}
-
-/*
-Credits CSS
- */
-#upperPaneLeft {
-    -fx-padding: 20px;
-}
-
-#upperPaneRight {
-    -fx-padding: 10px 0px 0px 0px;
-}
-
-#creditsRoot {
-    -fx-font-family: "Calibri";
-    -fx-background-color: #D0BB61;
-}
-
-#summaryText {
-    -fx-text-alignment: center;
-    -fx-font-size: 18px;
-    -fx-padding: 15px;
-}
-
-#creditsMain {
-    -fx-font-size: 20px;
-    -fx-border-width:2px;
-    -fx-border-radius: 3px;
-    -fx-border-color:black;
-    -fx-border-style:solid;
-    -fx-padding: 5px;
-}
-
-/*
-Custom Dialog CSS
-*/
-
-#customDialog {
-    -fx-background-color: #D0BB61;
-    -fx-padding: 10px;
-    -fx-font-size: 16px;
-}
-
-.myDialog{
-    -fx-background-color: #D0BB61;
-}
-.myDialog > *.button-bar > *.container{
-    -fx-background-color: #D0BB61;
-}
-
-.myDialog > *.label.content{
-    -fx-font-size: 20px;
-    -fx-font-weight: bold;
-}
-.myDialog:header *.header-panel{
-    -fx-background-color: #d9c575;
-}
-.myDialog:header *.header-panel *.label{
-    -fx-font-size: 25px;
-    -fx-fill: #292929;
-}
-
-/*
-Account Dialog CSS
- */
-
-.accountDialog{
-    -fx-background-color: #D0BB61;
-}
-.accountDialog > *.button-bar > *.container{
-    -fx-background-color: #D0BB61;
-}
-
-.accountDialog > *.label.content{
-    -fx-font-size: 20px;
-    -fx-font-weight: bold;
-}
-.accountDialog:header *.header-panel{
-    -fx-background-color: #d9c575;
-}
-.accountDialog:header *.header-panel *.label{
+.app-name {
     -fx-font-size: 23px;
-    -fx-fill: #292929;
+    -fx-font-weight: bold;
+    -fx-text-fill: #ffffff;
 }
-
-#accountGrid {
-    -fx-font-size: 16px;
+.muted { -fx-text-fill: #d8d9cd; -fx-font-size: 13px; }
+.work-area { -fx-padding: 26px 32px 18px; }
+.meeting-date { -fx-text-fill: #656654; -fx-font-size: 14px; }
+.heading {
+    -fx-font-size: 36px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #282923;
 }
-
-#textField {
+.instruction { -fx-font-size: 17px; -fx-text-fill: #565947; }
+.entry-form { -fx-padding: 16px 0px 0px; }
+.field-label { -fx-font-size: 14px; -fx-font-weight: bold; }
+.text-field {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #a3a592;
+    -fx-border-width: 1px;
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+    -fx-padding: 14px 16px;
+    -fx-font-size: 18px;
+    -fx-text-fill: #282923;
+    -fx-prompt-text-fill: #656654;
+    -fx-highlight-fill: #dfc467;
+    -fx-highlight-text-fill: #282923;
+}
+.text-field:focused {
+    -fx-border-color: #926f0d;
+    -fx-border-width: 2px;
+    -fx-padding: 13px 15px;
+}
+.button {
+    -fx-background-color: #dfc467;
+    -fx-text-fill: #272923;
     -fx-font-size: 15px;
-    -fx-background-color: WHITE;
-    -fx-prompt-text-fill: #808080;
-    -fx-alignment: top-left;
-    -fx-max-width: 300;
-    -fx-border-radius: 0px;
-    -fx-background-radius: 0;
-    -fx-min-height: 20px;
+    -fx-font-weight: bold;
+    -fx-background-radius: 8px;
+    -fx-padding: 16px 20px;
+    -fx-cursor: hand;
 }
+.button:hover { -fx-background-color: #eed786; }
+.button:pressed { -fx-background-color: #c8ab48; }
+.button:focused { -fx-border-color: #272923; -fx-border-width: 2px; -fx-border-radius: 8px; }
+.button:disabled, .text-field:disabled { -fx-opacity: 0.6; }
+.status { -fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #3e6035; }
+.status.error { -fx-text-fill: #9e3728; }
+.first-time { -fx-font-size: 13px; -fx-text-fill: #656654; }
+.app-footer {
+    -fx-padding: 16px 32px;
+    -fx-background-color: #eaeade;
+    -fx-border-color: #d7d8ca transparent transparent transparent;
+    -fx-border-width: 1px;
+}
+.connection { -fx-font-size: 12px; -fx-text-fill: #565947; }
+.hyperlink {
+    -fx-text-fill: #5e4c14;
+    -fx-font-size: 13px;
+    -fx-border-color: transparent;
+}
+.hyperlink:hover { -fx-underline: true; }
+.hyperlink:focused { -fx-border-color: #926f0d; -fx-border-radius: 3px; }
+.compact .heading { -fx-font-size: 27px; }
+.compact .app-name { -fx-font-size: 20px; }
+.compact .app-header { -fx-padding: 20px; }
+.compact .work-area { -fx-padding: 20px; }
+.compact .app-footer { -fx-padding: 14px 16px; }
+.compact .connection { -fx-font-size: 11px; }
+.compact .instruction { -fx-font-size: 15px; }
+.compact .text-field { -fx-font-size: 16px; -fx-padding: 14px 12px; }
+.compact .text-field:focused { -fx-padding: 13px 11px; }
+.compact .button { -fx-padding: 16px 12px; -fx-font-size: 14px; }
+#about, #splash { -fx-background-color: #f7f6f1; -fx-padding: 36px; }
+#about .label { -fx-text-alignment: center; }
+.team-dialog {
+    -fx-background-color: #f7f6f1;
+    -fx-padding: 20px;
+    -fx-font-size: 15px;
+}
+.team-dialog > .header-panel { -fx-background-color: #eaeade; }
+.team-dialog > .header-panel .label {
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #282923;
+}
+.team-dialog .text-field { -fx-font-size: 16px; -fx-padding: 12px; }
+.team-dialog .text-field:focused { -fx-padding: 11px; }
+.team-dialog .button { -fx-padding: 12px 20px; }
+.progress-indicator { -fx-progress-color: #926f0d; }

@@ -1,263 +1,128 @@
 package activities;
 
-import databases.BatchUpdateData;
 import databases.DatabaseUtils;
+import databases.SheetStore;
 import exceptions.CancelledUserCreationException;
 import helpers.AlertUtils;
+import helpers.AttendanceTime;
 import helpers.Constants;
-import helpers.LoggingUtils;
+import helpers.InputValidation;
+import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.logging.Level;
-import javafx.application.Platform;
-import scenes.GrizzlyScene;
+import java.util.List;
 
 public class UserActivity {
-  /**
-   * @author Dalton Smith UserActivity class Contains the various methods for handling user
-   *     login/logout
-   */
-  private DatabaseUtils dbUtils = new DatabaseUtils();
+  private final DatabaseUtils database;
+  private final LoginActivity login;
+  private final LogoutActivity logout;
+  private static final DateTimeFormatter TIME = DateTimeFormatter.ISO_DATE_TIME;
 
-  private AlertUtils alertUtils = new AlertUtils();
+  public UserActivity() {
+    this(new DatabaseUtils());
+  }
 
-  private LogoutActivity logoutActivity = new LogoutActivity(dbUtils);
-  private LoginActivity loginActivity = new LoginActivity(dbUtils);
+  public UserActivity(DatabaseUtils database) {
+    this.database = database;
+    login = new LoginActivity(database);
+    logout = new LogoutActivity(database);
+  }
 
-  private static DateTimeFormatter formatter = DateTimeFormatter.ISO_DATE_TIME;
-
-  // check if user is logged in
-  public boolean isUserLoggedIn(String userID) throws Exception {
-    dbUtils.getUpdatedData();
-
-    ArrayList<String> ids = dbUtils.getColumnData(0, Constants.kMainSheet);
-
-    int state = doesIdExist(ids, userID);
-
-    switch (state) {
-      case Constants.kIdDoesNotExist:
-        break;
-      case Constants.kIdLoggedIn:
-        return true;
-      case Constants.kIdNotLoggedIn:
-        return false;
-      default:
-        LoggingUtils.log(Level.SEVERE, "Uh oh, isUserLoggedIn received an unknown ID of " + state);
-        break;
+  public boolean isUserLoggedIn(String id) throws CancelledUserCreationException {
+    database.getUpdatedData();
+    int row = database.getCellRowFromColumn(id, Constants.kStudentIdColumn, Constants.kMainSheet);
+    if (row >= 1) {
+      return "TRUE"
+          .equalsIgnoreCase(
+              database.getCellData(row, Constants.kLoggedInColumn, Constants.kMainSheet).trim());
     }
-
-    // request users first name and last name
-    LoggingUtils.log(Level.INFO, "New User Detected");
-    ArrayList<String> userData = alertUtils.getUserInfo();
-
-    // throws CancelledUserException if registration was cancelled
-    createNewUser(userData, userID);
-
+    MemberRegistration registration =
+        new AlertUtils()
+            .getUserInfo()
+            .orElseThrow(() -> new CancelledUserCreationException("Registration cancelled."));
+    createNewUser(registration, id);
     return false;
   }
 
-  public void createNewUser(ArrayList<String> userData, String userID)
-      throws CancelledUserCreationException {
-    // cancel if user cancelled or exited registration dialog
-    if (("TRUE").equalsIgnoreCase(userData.get(0))) {
-      // create user then login
-      ArrayList<BatchUpdateData> data = new ArrayList<>();
-
-      int blankRow = dbUtils.nextEmptyCellColumn(Constants.kMainSheet);
-      addUserInfoBasic(userData, userID, data, blankRow);
-      data.add(new BatchUpdateData(blankRow, Constants.kEmailColumn, userData.get(3)));
-      data.add(new BatchUpdateData(blankRow, Constants.kRoleColumn, userData.get(5)));
-      data.add(new BatchUpdateData(blankRow, Constants.kGenderColumn, userData.get(4)));
-
-      dbUtils.setCellDataBatch(data, Constants.kMainSheet);
-      dbUtils.getUpdatedData();
-
-      ArrayList<String> columnLogged =
-          dbUtils.getColumnData(Constants.kStudentIdColumn, Constants.kLogSheet);
-
-      int i;
-      for (i = 1; i < columnLogged.size(); i++) {
-        if (columnLogged.get(i).equals("")) {
-          break;
-        }
-      }
-
-      data.clear();
-      addUserInfoBasic(userData, userID, data, i);
-
-      dbUtils.setCellDataBatch(data, Constants.kLogSheet);
-      dbUtils.getUpdatedData();
-
-      // ensure there is a date column
-      logoutActivity.getCurrentDateColumn();
-
-    } else {
-      LoggingUtils.log(Level.INFO, "Account Creation Cancelled");
-      throw new CancelledUserCreationException("Cancelled");
+  public void createNewUser(MemberRegistration registration, String id) {
+    if (!isValidID(id)) {
+      throw new IllegalArgumentException("Enter a valid member ID.");
     }
-  }
-
-  private void addUserInfoBasic(
-      ArrayList<String> userData, String userID, ArrayList<BatchUpdateData> data, int i) {
-    data.add(new BatchUpdateData(i, Constants.kStudentIdColumn, userID));
-    data.add(new BatchUpdateData(i, Constants.kFirstNameColumn, userData.get(1)));
-    data.add(new BatchUpdateData(i, Constants.kLastNameColumn, userData.get(2)));
-  }
-
-  public int doesIdExist(ArrayList<String> ids, String userID) {
-    // check if the user ID exists
-    for (int i = 0; i < ids.size(); i++) {
-      // if the user exists, check if logged in or logged out and return state
-      if (ids.get(i).equals(userID)) {
-        String cellData = dbUtils.getCellData(i, Constants.kLoggedInColumn, Constants.kMainSheet);
-        try {
-          cellData = cellData.replaceAll("\\s+", "");
-
-        } catch (NullPointerException e) {
-          continue;
-          // do nothing because the cell doesn't exist?
-        }
-
-        if (cellData.equals("TRUE")) {
-          return Constants.kIdLoggedIn;
-
-        } else {
-          return Constants.kIdNotLoggedIn;
-        }
-      }
+    if (database.getCellRowFromColumn(id, Constants.kStudentIdColumn, Constants.kMainSheet) >= 1) {
+      throw new IllegalArgumentException("That member ID is already registered.");
     }
-
-    return Constants.kIdDoesNotExist;
-  }
-
-  // login our user
-  public void loginUser(String userID) {
-    Platform.runLater(() -> GrizzlyScene.setMessageBoxText("Logging in user: " + userID));
-
-    // grab the current time from system and format it into string
-    LocalDateTime loginTime = LocalDateTime.now();
-    String formattedLoginTime = loginTime.format(formatter);
-
-    int userRow =
-        dbUtils.getCellRowFromColumn(userID, Constants.kStudentIdColumn, Constants.kMainSheet);
-
-    // log the user in
-    if (userRow != -1) {
-      loginActivity.loginUser(userRow, formattedLoginTime);
-
-      Platform.runLater(
-          () -> {
-            GrizzlyScene.setMessageBoxText("Successfully logged in user: " + userID);
-            GrizzlyScene.clearInput();
-          });
+    List<SheetStore.Cell> writes = new ArrayList<>();
+    int row = database.nextEmptyCellColumn(Constants.kMainSheet);
+    writes.add(
+        new SheetStore.Cell(
+            Constants.kMainSheet, row, Constants.kEmailColumn, registration.email()));
+    writes.add(
+        new SheetStore.Cell(Constants.kMainSheet, row, Constants.kTotalHoursColumn, "00:00:00"));
+    writes.add(new SheetStore.Cell(Constants.kMainSheet, row, Constants.kHoursColumn, "00:00:00"));
+    writes.add(new SheetStore.Cell(Constants.kMainSheet, row, Constants.kLoggedInColumn, "FALSE"));
+    addIdentity(writes, Constants.kMainSheet, row, registration, id);
+    int logRow = database.getCellRowFromColumn(id, Constants.kStudentIdColumn, Constants.kLogSheet);
+    if (logRow < 1) {
+      addIdentity(
+          writes,
+          Constants.kLogSheet,
+          database.nextEmptyCellColumn(Constants.kLogSheet),
+          registration,
+          id);
     }
+    database.write(writes);
+    database.getUpdatedData();
   }
 
-  // logout the user
-  public void logoutUser(String userID) {
-    Platform.runLater(() -> GrizzlyScene.setMessageBoxText("Logging out user: " + userID));
-
-    // grab the row the user is on
-    int userRow =
-        dbUtils.getCellRowFromColumn(userID, Constants.kStudentIdColumn, Constants.kMainSheet);
-
-    // grab last logged in time
-    LocalDateTime logoutTime = LocalDateTime.now();
-    LocalDateTime loginTime =
-        LocalDateTime.parse(
-            dbUtils.getCellData(userRow, Constants.kLastLoginColumn, Constants.kMainSheet),
-            formatter);
-
-    String formattedLogoutTime = logoutTime.format(formatter);
-
-    // assuming userRow isn't invalid, calculate difference in time and log hours
-    if (userRow != -1) {
-      // update the logout time
-      dbUtils.setCellData(
-          userRow, Constants.kLastLogoutColumn, formattedLogoutTime, Constants.kMainSheet);
-
-      int diffHours = logoutTime.getHour() - loginTime.getHour();
-      int diffMinutes = logoutTime.getMinute() - loginTime.getMinute();
-      int diffSeconds = logoutTime.getSecond() - loginTime.getSecond();
-
-      boolean err = false;
-
-      if (diffHours < 0) {
-        LoggingUtils.log(
-            Level.SEVERE,
-            "Well this is awkward, difference shouldn't be negative: h:"
-                + diffHours
-                + " m:"
-                + diffMinutes
-                + " s:"
-                + diffSeconds);
-        err = true;
-      }
-
-      if (diffSeconds < 0) {
-        diffMinutes -= 1;
-        diffSeconds = 60 - Math.abs(diffSeconds);
-      }
-
-      if (diffMinutes < 0) {
-        diffHours -= 1;
-        diffMinutes = 60 - Math.abs(diffMinutes);
-      }
-
-      if (loginTime.getYear() == logoutTime.getYear()) {
-        if (loginTime.getMonth() == logoutTime.getMonth()) {
-          if (loginTime.getDayOfMonth() != logoutTime.getDayOfMonth()) {
-            err = true;
-          }
-        } else {
-          err = true;
-        }
-      } else {
-        err = true;
-      }
-
-      if (!err) {
-        String totalTimeFromDifference =
-            String.format("%02d:%02d:%02d", diffHours, diffMinutes, diffSeconds);
-        LocalTime totalHoursTime = LocalTime.parse(totalTimeFromDifference);
-
-        logoutActivity.logoutUserWithHours(
-            userID, userRow, totalHoursTime, totalTimeFromDifference);
-      }
-
-      // logout the user
-      dbUtils.setCellData(userRow, Constants.kLoggedInColumn, "FALSE", Constants.kMainSheet);
-
-      if (err) {
-        Platform.runLater(
-            () -> {
-              GrizzlyScene.setMessageBoxText("You forgot to log out! Please re-login!");
-              GrizzlyScene.clearInput();
-            });
-      }
-    }
+  private static void addIdentity(
+      List<SheetStore.Cell> writes, int page, int row, MemberRegistration member, String id) {
+    writes.add(new SheetStore.Cell(page, row, 0, id));
+    writes.add(new SheetStore.Cell(page, row, 1, member.firstName()));
+    writes.add(new SheetStore.Cell(page, row, 2, member.lastName()));
   }
 
-  // checks if ID is valid long and x digit number (x based on config file)
-  public boolean isValidID(String userID) {
-    int idLength = LocalDbActivity.kIdLength;
-    int mentorIdLength = LocalDbActivity.kIdLengthFallback;
+  public void loginUser(String id) {
+    int row = memberRow(id);
+    login.loginUser(row, LocalDateTime.now().format(TIME));
+  }
 
+  public String logoutUser(String id) {
+    int row = memberRow(id);
+    LocalDateTime now = LocalDateTime.now();
+    LocalDateTime started;
     try {
-      Long.parseLong(userID);
-
-      if (Constants.kMentorFallback) {
-        return userID.length() == idLength || userID.length() == mentorIdLength;
-
-      } else {
-        return userID.length() == idLength;
-      }
-
-    } catch (NumberFormatException e) {
-      // not a valid ID
-      return false;
+      started =
+          LocalDateTime.parse(
+              database.getCellData(row, Constants.kLastLoginColumn, Constants.kMainSheet), TIME);
+    } catch (RuntimeException e) {
+      throw new IllegalStateException(
+          "Your check-in time is invalid. Ask a team lead to check the sheet.");
     }
+    // Preserve the original forgotten-check-out policy across meeting days.
+    if (!started.toLocalDate().equals(now.toLocalDate()) || now.isBefore(started)) {
+      database.write(
+          List.of(
+              new SheetStore.Cell(Constants.kMainSheet, row, Constants.kLoggedInColumn, "FALSE"),
+              new SheetStore.Cell(
+                  Constants.kMainSheet, row, Constants.kLastLogoutColumn, now.format(TIME))));
+      return "Your previous meeting was still open. Check in again to start today's time.";
+    }
+    Duration session = Duration.between(started, now);
+    logout.logoutUserWithHours(id, row, session, now.format(TIME));
+    return "Checked out. " + AttendanceTime.format(session) + " added to your meeting hours.";
+  }
+
+  private int memberRow(String id) {
+    int row = database.getCellRowFromColumn(id, Constants.kStudentIdColumn, Constants.kMainSheet);
+    if (row < 1) {
+      throw new IllegalArgumentException("That member ID is not registered.");
+    }
+    return row;
+  }
+
+  public boolean isValidID(String id) {
+    return InputValidation.isValidId(
+        id, LocalDbActivity.kIdLength, LocalDbActivity.kIdLengthFallback);
   }
 }

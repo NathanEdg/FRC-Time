@@ -8,7 +8,9 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
-/** @author Dalton Smith LoggingUtils Handles interaction with the log file. */
+/**
+ * @author Dalton Smith LoggingUtils Handles interaction with the log file.
+ */
 public class LoggingUtils {
   private static Logger logger = Logger.getLogger("");
 

@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-13T00:00:00Z",
+  "title": "Design System: Team 293 Time",
+  "extensions": {
+    "platform": "javafx-desktop",
+    "breakpoints": [
+      {
+        "name": "compact",
+        "value": "600px"
+      }
+    ],
+    "shadows": [],
+    "motion": [],
+    "nativeComponents": [
+      {
+        "name": "Primary Button",
+        "source": "src/main/resources/styles/root.css",
+        "selector": ".button"
+      },
+      {
+        "name": "Member ID Input",
+        "source": "src/main/java/scenes/KioskView.java",
+        "selector": "#memberId"
+      },
+      {
+        "name": "Registration Dialog",
+        "source": "src/main/java/helpers/AlertUtils.java",
+        "selector": ".team-dialog"
+      }
+    ]
+  },
+  "components": [],
+  "narrative": {
+    "overview": "Team 293's official identity carries through familiar native controls. Actual JavaFX captures verify desktop and narrow-window behavior.",
+    "dos": [
+      "Preserve the official logo and clear attendance state.",
+      "Keep controls readable and keyboard accessible."
+    ],
+    "donts": [
+      "Obscure ID entry or recovery.",
+      "Add demographic fields to registration."
+    ]
+  }
+}

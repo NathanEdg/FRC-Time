@@ -1,198 +1,119 @@
 package databases;
 
-import activities.LoginActivity;
 import helpers.Constants;
-import helpers.LoggingUtils;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
 
 public class DatabaseUtils {
-  /**
-   * @author Dalton Smith DatabaseUtils Helpers to make managing the google sheets API Horribly
-   *     inefficient, but it works :)
-   */
-  private final DatabaseProcess dbProcess = new DatabaseProcess();
+  private final SheetStore store;
+  private List<List<Object>> current;
+  private List<List<Object>> log;
+  private CurrentSheetLayout layout;
 
-  private List<List<Object>> mainWorksheet;
-  private List<List<Object>> loggedHours;
-  private List<List<Object>> currentWorksheet;
-  private List<List<Object>> registrationData;
-
-  // initial grab of worksheet data
   public DatabaseUtils() {
-    // initial data
-    currentWorksheet = dbProcess.returnWorksheetData(Constants.kMainSheet);
-    mainWorksheet = currentWorksheet;
-    loggedHours = dbProcess.returnWorksheetData(Constants.kLogSheet);
-    updateStudentRegistrationData();
+    this(new DatabaseProcess());
   }
 
-  // helper method called at beginning of each method to retrieve updated data
+  public DatabaseUtils(SheetStore store) {
+    this.store = store;
+    getUpdatedData();
+  }
+
   public void getUpdatedData() {
-    currentWorksheet = dbProcess.returnWorksheetData(Constants.kMainSheet);
-    mainWorksheet = currentWorksheet;
-    loggedHours = dbProcess.returnWorksheetData(Constants.kLogSheet);
-    updateStudentRegistrationData();
+    List<List<Object>> updatedCurrent = store.read(Constants.kMainSheet);
+    List<List<Object>> updatedLog = store.read(Constants.kLogSheet);
+    // Validate existing data before initializing any missing headers.
+    CurrentSheetLayout updatedLayout =
+        CurrentSheetLayout.fromHeaders(
+            updatedCurrent.isEmpty() ? CurrentSheetLayout.HEADERS : updatedCurrent.get(0));
+    if (!updatedLog.isEmpty()) {
+      CurrentSheetLayout.validateLogHeaders(updatedLog.get(0));
+    }
+    List<SheetStore.Cell> headers = new ArrayList<>();
+    if (updatedCurrent.isEmpty()) {
+      for (int i = 0; i < CurrentSheetLayout.HEADERS.size(); i++) {
+        headers.add(
+            new SheetStore.Cell(
+                Constants.kMainSheet, 0, i, String.valueOf(CurrentSheetLayout.HEADERS.get(i))));
+      }
+    }
+    if (updatedLog.isEmpty()) {
+      for (int i = 0; i < 3; i++) {
+        headers.add(
+            new SheetStore.Cell(
+                Constants.kLogSheet, 0, i, String.valueOf(CurrentSheetLayout.HEADERS.get(i))));
+      }
+    }
+    store.write(headers);
+    layout = updatedLayout;
+    current = updatedCurrent.isEmpty() ? List.of(CurrentSheetLayout.HEADERS) : updatedCurrent;
+    log = updatedLog.isEmpty() ? List.of(CurrentSheetLayout.HEADERS.subList(0, 3)) : updatedLog;
+  }
+
+  public void write(List<SheetStore.Cell> cells) {
+    List<SheetStore.Cell> mapped = new ArrayList<>();
+    for (SheetStore.Cell cell : cells) {
+      mapped.add(
+          new SheetStore.Cell(
+              cell.page(),
+              cell.row(),
+              cell.page() == Constants.kMainSheet
+                  ? layout.physicalColumn(cell.column())
+                  : cell.column(),
+              cell.value()));
+    }
+    store.write(mapped);
   }
 
   public void setCellDataBatch(ArrayList<BatchUpdateData> data, int page) {
-    setPage(page);
-
-    dbProcess.updateSpreadSheetBatch(data, page);
-  }
-
-  // update registration data sheet
-  private void updateStudentRegistrationData() {
-    if (LoginActivity.grizzlyPrompt) {
-      registrationData = dbProcess.returnWorksheetData(Constants.kRegistrationSheet);
+    List<SheetStore.Cell> cells = new ArrayList<>();
+    for (BatchUpdateData item : data) {
+      cells.add(new SheetStore.Cell(page, item.getRow() - 1, item.getColumn() - 1, item.getData()));
     }
+    write(cells);
   }
 
-  // grabs column data from sheet
   public ArrayList<String> getColumnData(int column, int page) {
-    setPage(page);
-
-    if (isWorksheetsNotValid()) {
-      return null;
-    }
-
+    int mapped = page == Constants.kMainSheet ? layout.physicalColumn(column) : column;
     ArrayList<String> result = new ArrayList<>();
-
-    try {
-      // add various rows to ArrayList
-      for (List row : mainWorksheet) {
-        try {
-          result.add(row.get(column).toString());
-
-        } catch (Exception e) {
-          result.add("");
-        }
-      }
-    } catch (NullPointerException e) {
-      LoggingUtils.log(Level.WARNING, "IS THERE DATA IN WORKSHEET?");
+    for (List<Object> row : page == Constants.kMainSheet ? current : log) {
+      result.add(mapped < row.size() ? String.valueOf(row.get(mapped)) : "");
     }
-
     return result;
   }
 
-  public ArrayList<String> getRowData(int row, int page) {
-    if (isWorksheetsNotValid()) {
-      return null;
-    }
-
-    setPage(page);
-
-    int i = 1;
+  public ArrayList<String> getRowData(int oneBasedRow, int page) {
+    List<List<Object>> rows = page == Constants.kMainSheet ? current : log;
     ArrayList<String> result = new ArrayList<>();
-
-    for (List currentRow : mainWorksheet) {
-      if (i == row) {
-        int x = 0;
-        while (true) {
-          try {
-            result.add(currentRow.get(x).toString());
-
-          } catch (Exception e) {
-            break; // no more data;
-          }
-          x++;
-        }
-      }
-
-      i++;
+    if (oneBasedRow < 1 || oneBasedRow > rows.size()) {
+      return result;
     }
-
+    for (Object cell : rows.get(oneBasedRow - 1)) {
+      result.add(String.valueOf(cell));
+    }
     return result;
   }
 
-  // sets cell data
-  public void setCellData(int row, int column, String data, int page) {
-
-    // set appropriate sheet
-    setPage(page);
-
-    dbProcess.updateSpreadSheet(row + 1, column + 1, data, page);
+  public void setCellData(int row, int column, String value, int page) {
+    write(List.of(new SheetStore.Cell(page, row, column, value)));
   }
 
-  // gets specific cell data
   public String getCellData(int row, int column, int page) {
-    if (isWorksheetsNotValid()) {
-      return null;
-    }
-
-    setPage(page);
-
-    int i = 0;
-
-    for (String sheetRow : getColumnData(column, page)) {
-      if (i == row) {
-        return sheetRow;
-      }
-
-      i++;
-    }
-
-    return null;
+    List<String> values = getColumnData(column, page);
+    return row >= 0 && row < values.size() ? values.get(row) : "";
   }
 
-  // grab a a cell row based on its position in a column
-  public int getCellRowFromColumn(String cellValue, int column, int page) {
-
-    if (isWorksheetsNotValid()) {
-      return -1;
-    }
-
-    int i = 0;
-    for (String value : getColumnData(column, page)) {
-      if (value.equals(cellValue)) {
-        return i;
-      }
-      i++;
-    }
-
-    return -1;
+  public int getCellRowFromColumn(String value, int column, int page) {
+    return getColumnData(column, page).indexOf(value);
   }
 
-  // grab the next empty cell from first row
   public int nextEmptyCellColumn(int page) {
-
-    setPage(page);
-
-    ArrayList<String> columnData = getColumnData(Constants.kStudentIdColumn, page);
-    int i;
-
-    for (i = 0; i < columnData.size(); i++) {
-      if (columnData.get(i).isEmpty()) {
+    List<String> ids = getColumnData(Constants.kStudentIdColumn, page);
+    for (int i = 1; i < ids.size(); i++) {
+      if (ids.get(i).isEmpty()) {
         return i;
       }
     }
-
-    return i;
-  }
-
-  private boolean isWorksheetsNotValid() {
-
-    if (DatabaseProcess.worksheetIsEmpty) {
-      return false;
-    }
-
-    return (mainWorksheet == null || loggedHours == null);
-  }
-
-  private void setPage(int page) {
-    switch (page) {
-      case Constants.kMainSheet:
-        mainWorksheet = currentWorksheet;
-        break;
-      case Constants.kLogSheet:
-        mainWorksheet = loggedHours;
-        break;
-      case Constants.kRegistrationSheet:
-        mainWorksheet = registrationData;
-        break;
-      default:
-        break;
-    }
+    return ids.size();
   }
 }

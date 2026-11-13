@@ -1,11 +1,11 @@
+import java.util.Arrays;
 import javafx.application.Application;
 
-/**
- * This is the true main class of GrizzlyTime, it launches GrizzlyTime through some fancy black
- * magic to get JFX working on Java 11
- */
+/** Separate launcher allows JavaFX to run from the distribution's classpath. */
 public class Main {
   public static void main(String[] args) {
-    GrizzlyTime.main(args);
+    Application.launch(
+        Arrays.asList(args).contains("--preview") ? PreviewApplication.class : Team293Time.class,
+        args);
   }
 }

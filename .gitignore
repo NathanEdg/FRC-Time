@@ -43,4 +43,10 @@ out/*
 logs/*
 tokens/*
 bin/*
-config.json
+/config.json
+# Runtime secrets and local review output
+/credentials.json
+/.impeccable/review/
+/.impeccable/cache/
+/.impeccable/mocks/
+/.impeccable/config.local.json

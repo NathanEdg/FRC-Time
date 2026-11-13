@@ -1,91 +1,71 @@
 package databases;
 
-import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
-
 import exceptions.JsonKeyHasNoDataException;
-import helpers.AlertUtils;
 import helpers.CommonUtils;
 import helpers.Constants;
-import helpers.LoggingUtils;
-import java.io.*;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.logging.Level;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import org.json.JSONObject;
 
+/** Runtime configuration stays outside the source tree and is updated atomically. */
 public class JSONHelper {
-  /***
-   * @author Dalton Smith
-   * JSONHelper
-   * Utility methods for retrieving configuration stored in the JSON
-   */
+  private final Path config;
 
-  private AlertUtils util = new AlertUtils();
+  public JSONHelper() {
+    this(CommonUtils.getDataDir().resolve(Constants.kConfigName));
+  }
 
-  // grab JSONKey
+  public JSONHelper(Path config) {
+    this.config = config.toAbsolutePath();
+  }
+
   public String getKey(String key) throws JsonKeyHasNoDataException, FileNotFoundException {
-    String JSONString;
-
-    // attempt to grab JSONString from config file
-    JSONString =
-        CommonUtils.readFile(CommonUtils.getCurrentDir() + File.separator + Constants.kConfigName);
-
-    // create a JSONObject from our string
-    JSONObject json = new JSONObject(JSONString);
-    String result;
-
-    // grab the specified key from our json object
-    result = json.getString(key);
-
-    // confirm that the key was successfully retrieved
+    String result = new JSONObject(CommonUtils.readFile(config.toString())).getString(key);
     if (result.isEmpty()) {
-      throw new JsonKeyHasNoDataException(key + " has no data!");
-
-    } else {
-      // key was successfully retrieved
-      LoggingUtils.log(Level.INFO, "Successfully retrieved: " + key + ": " + result);
-      return result;
+      throw new JsonKeyHasNoDataException("A required configuration value is empty.");
     }
+    return result;
   }
 
-  public void editSpreadsheetId(String sheetID) throws FileNotFoundException {
-    String data =
-        CommonUtils.readFile(CommonUtils.getCurrentDir() + File.separator + Constants.kConfigName);
-
-    String[] keyData = data.split("\"sheet\":\"");
-
-    String newJson = keyData[0] + "\"sheet\":\"" + sheetID + keyData[1];
-
-    try {
-      FileWriter writer =
-          new FileWriter(
-              new File(CommonUtils.getCurrentDir() + File.separator + Constants.kConfigName));
-      writer.write(newJson);
-      writer.flush();
-      writer.close();
-    } catch (IOException e) {
-      LoggingUtils.log(Level.SEVERE, "Unable to edit sheet value!");
+  public void editSpreadsheetId(String sheetId) throws IOException {
+    if (sheetId == null || !sheetId.matches("[A-Za-z0-9_-]+")) {
+      throw new IllegalArgumentException("Invalid spreadsheet ID.");
     }
-  }
-
-  // copy our json outside directory
-  public void copyTemplateJSON() {
+    JSONObject data = new JSONObject(Files.readString(config));
+    if (sheetId.equals(data.optString("sheet"))) {
+      return;
+    }
+    data.put("sheet", sheetId);
+    Path temporary = Files.createTempFile(config.getParent(), ".config-", ".tmp");
     try {
-      InputStream pathToConfig =
-          getClass().getClassLoader().getResourceAsStream("templates/config.json");
-
-      if (pathToConfig == null) {
-        throw new IOException("Path to config is null!");
+      Files.writeString(temporary, data.toString(2) + "\n");
+      try {
+        Files.move(
+            temporary, config, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+      } catch (AtomicMoveNotSupportedException e) {
+        Files.move(temporary, config, StandardCopyOption.REPLACE_EXISTING);
       }
+    } finally {
+      Files.deleteIfExists(temporary);
+    }
+  }
 
-      Files.copy(pathToConfig, Paths.get(Constants.kConfigName), REPLACE_EXISTING);
-
-    } catch (IOException e) {
-      LoggingUtils.log(Level.SEVERE, e.getMessage());
-      util.createAlert(
-          "ERROR",
-          "Error Copying Json",
-          "An unspecified error occured while copying the config.json. \n" + e.getMessage());
+  public void copyTemplateJSON() throws IOException {
+    Files.createDirectories(config.getParent());
+    if (Files.exists(config)) {
+      return;
+    }
+    try (InputStream template =
+        getClass().getClassLoader().getResourceAsStream("templates/config.json")) {
+      if (template == null) {
+        throw new IOException("Configuration template is missing.");
+      }
+      Files.copy(template, config);
     }
   }
 }
