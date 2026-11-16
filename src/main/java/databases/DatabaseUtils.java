@@ -107,6 +107,10 @@ public class DatabaseUtils {
     return getColumnData(column, page).indexOf(value);
   }
 
+  public int logWidth() {
+    return log.stream().mapToInt(List::size).max().orElse(0);
+  }
+
   public int nextEmptyCellColumn(int page) {
     // A blank ID can belong to a partially cleared record; never reuse historical rows.
     return (page == Constants.kMainSheet ? current : log).size();

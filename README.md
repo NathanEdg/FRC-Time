@@ -25,7 +25,7 @@ Install **JDK 17 or 21**. JavaFX and other dependencies are downloaded by Gradle
 ./gradlew run --args="--preview"
 ```
 
-Preview opens the real kiosk and registration dialog without Google credentials, network access, or saved attendance. The footer identifies preview mode.
+Preview opens the real kiosk and registration screen without Google credentials, network access, or saved attendance. The footer identifies preview mode.
 
 For live attendance:
 
@@ -56,7 +56,7 @@ The app creates `config.json` in its data directory on first run. Template defau
 }
 ```
 
-Both ID lengths accept digits only and retain leading zeroes. Hands-free mode removes the attendance confirmation dialog; new members still complete registration. F11 or **Full screen** toggles kiosk mode. A custom stylesheet can be placed at `<data directory>/styles/style.css`.
+Both ID lengths accept digits only and retain leading zeroes. Hands-free mode removes the attendance confirmation dialog; an unrecognized ID opens the registration screen. New members enter their first name, last name, and email, then select **Register and check in** to save their details and start attendance. F11 or **Full screen** toggles kiosk mode. A custom stylesheet can be placed at `<data directory>/styles/style.css`.
 
 Credentials and OAuth tokens are loaded only at runtime and are excluded from distributions. The fork does not prompt users to install upstream GrizzlyTime releases.
 

@@ -32,14 +32,12 @@ public class PreviewApplication extends Application {
             view.setStatus("Enter a member ID with " + KioskView.memberIdFormat() + ".", true);
             return;
           }
-          new AlertUtils()
-              .getUserInfo()
-              .ifPresent(
-                  member -> {
-                    view.setStatus(
-                        "Preview complete. No account or attendance data was saved.", false);
-                    view.clearAndFocus();
-                  });
+          view.showRegistration(
+              id,
+              member ->
+                  view.finishRegistration(
+                      "Preview complete. No account or attendance data was saved."),
+              () -> view.finishRegistration(""));
         });
     view.onAbout(
         () ->

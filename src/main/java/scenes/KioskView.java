@@ -1,6 +1,7 @@
 package scenes;
 
 import activities.LocalDbActivity;
+import activities.MemberRegistration;
 import helpers.Constants;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -23,6 +24,8 @@ public class KioskView extends VBox {
   private final Hyperlink about = new Hyperlink("About");
   private final Hyperlink fullscreen = new Hyperlink("Full screen");
   private final Timeline clock;
+  private final StackPane center;
+  private final VBox work;
 
   public KioskView(boolean preview) {
     setId("kiosk");
@@ -101,10 +104,10 @@ public class KioskView extends VBox {
     firstTime.setMaxWidth(Double.MAX_VALUE);
 
     VBox feedback = new VBox(8, status, firstTime);
-    VBox work = new VBox(24, introduction, form, feedback);
+    work = new VBox(24, introduction, form, feedback);
     work.setAlignment(Pos.CENTER_LEFT);
     work.setMaxWidth(480);
-    StackPane center = new StackPane(work);
+    center = new StackPane(work);
     center.getStyleClass().add("work-area");
     VBox.setVgrow(center, Priority.ALWAYS);
 
@@ -166,7 +169,28 @@ public class KioskView extends VBox {
     fullscreen.setOnAction(event -> action.run());
   }
 
+  public void showRegistration(String id, Consumer<MemberRegistration> submit, Runnable cancel) {
+    about.setDisable(true);
+    center.getChildren().setAll(new RegistrationView(id, submit, cancel));
+  }
+
+  void setRegistrationBusy() {
+    ((RegistrationView) center.getChildren().get(0)).setBusy(true);
+  }
+
+  void showRegistrationError(String message) {
+    ((RegistrationView) center.getChildren().get(0)).showError(message);
+  }
+
+  public void finishRegistration(String message) {
+    center.getChildren().setAll(work);
+    setBusy(false);
+    setStatus(message, false);
+    clearAndFocus();
+  }
+
   public void setBusy(boolean busy) {
+    about.setDisable(busy);
     memberId.setDisable(busy);
     confirm.setDisable(busy);
     confirm.setText(busy ? "Saving…" : "Check in or out");

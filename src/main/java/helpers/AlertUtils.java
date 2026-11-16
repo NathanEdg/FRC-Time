@@ -1,13 +1,10 @@
 package helpers;
 
-import activities.MemberRegistration;
-import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
-import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -65,62 +62,6 @@ public class AlertUtils {
     Stage window = (Stage) dialog.getDialogPane().getScene().getWindow();
     window.getIcons().add(new Image(Constants.kApplicationIcon));
     return dialog;
-  }
-
-  public Optional<MemberRegistration> getUserInfo() {
-    return onFxThread(
-        () -> {
-          Dialog<ButtonType> dialog = dialog("New member", "Add your details");
-          dialog.getDialogPane().setPrefWidth(400);
-          ButtonType create = new ButtonType("Register", ButtonBar.ButtonData.OK_DONE);
-          dialog.getDialogPane().getButtonTypes().addAll(create, ButtonType.CANCEL);
-          GridPane form = registrationForm();
-          TextField first = (TextField) form.lookup("#firstName");
-          TextField last = (TextField) form.lookup("#lastName");
-          TextField email = (TextField) form.lookup("#email");
-          dialog.getDialogPane().setContent(form);
-          dialog
-              .getDialogPane()
-              .lookupButton(create)
-              .disableProperty()
-              .bind(
-                  Bindings.createBooleanBinding(
-                      () ->
-                          !InputValidation.isValidMember(
-                              first.getText(), last.getText(), email.getText()),
-                      first.textProperty(),
-                      last.textProperty(),
-                      email.textProperty()));
-          Platform.runLater(first::requestFocus);
-          if (dialog.showAndWait().orElse(ButtonType.CANCEL) != create) {
-            return Optional.empty();
-          }
-          return Optional.of(
-              new MemberRegistration(first.getText(), last.getText(), email.getText()));
-        });
-  }
-
-  public static GridPane registrationForm() {
-    GridPane form = new GridPane();
-    form.setVgap(8);
-    form.setPadding(new Insets(12, 0, 12, 0));
-    String[] labels = {"First name", "Last name", "Email"};
-    String[] ids = {"firstName", "lastName", "email"};
-    String[] prompts = {"", "", "you@example.com"};
-    for (int i = 0; i < labels.length; i++) {
-      Label label = new Label(labels[i]);
-      label.getStyleClass().add("field-label");
-      TextField field = new TextField();
-      field.setId(ids[i]);
-      field.setPromptText(prompts[i]);
-      field.setPrefColumnCount(22);
-      field.setMaxWidth(Double.MAX_VALUE);
-      GridPane.setHgrow(field, javafx.scene.layout.Priority.ALWAYS);
-      label.setLabelFor(field);
-      form.add(label, 0, i * 2);
-      form.add(field, 0, i * 2 + 1);
-    }
-    return form;
   }
 
   public String showSpreadsheetDialog() {

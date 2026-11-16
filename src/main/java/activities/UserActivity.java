@@ -2,8 +2,6 @@ package activities;
 
 import databases.DatabaseUtils;
 import databases.SheetStore;
-import exceptions.CancelledUserCreationException;
-import helpers.AlertUtils;
 import helpers.AttendanceTime;
 import helpers.Constants;
 import helpers.InputValidation;
@@ -29,23 +27,36 @@ public class UserActivity {
     logout = new LogoutActivity(database);
   }
 
-  public boolean isUserLoggedIn(String id) throws CancelledUserCreationException {
+  public enum AttendanceStatus {
+    UNREGISTERED,
+    CHECKED_OUT,
+    CHECKED_IN
+  }
+
+  public AttendanceStatus attendanceStatus(String id) {
     database.getUpdatedData();
     int row = database.getCellRowFromColumn(id, Constants.kStudentIdColumn, Constants.kMainSheet);
-    if (row >= 1) {
-      return "TRUE"
-          .equalsIgnoreCase(
-              database.getCellData(row, Constants.kLoggedInColumn, Constants.kMainSheet).trim());
+    if (row < 1) {
+      return AttendanceStatus.UNREGISTERED;
     }
-    MemberRegistration registration =
-        new AlertUtils()
-            .getUserInfo()
-            .orElseThrow(() -> new CancelledUserCreationException("Registration cancelled."));
-    createNewUser(registration, id);
-    return false;
+    return "TRUE"
+            .equalsIgnoreCase(
+                database.getCellData(row, Constants.kLoggedInColumn, Constants.kMainSheet).trim())
+        ? AttendanceStatus.CHECKED_IN
+        : AttendanceStatus.CHECKED_OUT;
   }
 
   public void createNewUser(MemberRegistration registration, String id) {
+    createNewUser(registration, id, false);
+    database.getUpdatedData();
+  }
+
+  public void registerAndCheckIn(MemberRegistration registration, String id) {
+    database.getUpdatedData();
+    createNewUser(registration, id, true);
+  }
+
+  private void createNewUser(MemberRegistration registration, String id, boolean checkIn) {
     if (!isValidID(id)) {
       throw new IllegalArgumentException("Enter a valid member ID.");
     }
@@ -60,7 +71,12 @@ public class UserActivity {
     writes.add(
         new SheetStore.Cell(Constants.kMainSheet, row, Constants.kTotalHoursColumn, "00:00:00"));
     writes.add(new SheetStore.Cell(Constants.kMainSheet, row, Constants.kHoursColumn, "00:00:00"));
-    writes.add(new SheetStore.Cell(Constants.kMainSheet, row, Constants.kLoggedInColumn, "FALSE"));
+    writes.addAll(
+        checkIn
+            ? LoginActivity.checkInCells(row, LocalDateTime.now().format(TIME))
+            : List.of(
+                new SheetStore.Cell(
+                    Constants.kMainSheet, row, Constants.kLoggedInColumn, "FALSE")));
     addIdentity(writes, Constants.kMainSheet, row, registration, id);
     int logRow = database.getCellRowFromColumn(id, Constants.kStudentIdColumn, Constants.kLogSheet);
     if (logRow < 1) {
@@ -72,7 +88,6 @@ public class UserActivity {
           id);
     }
     database.write(writes);
-    database.getUpdatedData();
   }
 
   private static void addIdentity(

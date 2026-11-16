@@ -13,11 +13,13 @@ public class LoginActivity {
   }
 
   public void loginUser(int row, String time) {
-    database.write(
-        List.of(
-            new SheetStore.Cell(Constants.kMainSheet, row, Constants.kLastLoginColumn, time),
-            new SheetStore.Cell(Constants.kMainSheet, row, Constants.kLoggedInColumn, "TRUE"),
-            new SheetStore.Cell(
-                Constants.kMainSheet, row, Constants.kLastLogoutColumn, "LOGGED IN")));
+    database.write(checkInCells(row, time));
+  }
+
+  static List<SheetStore.Cell> checkInCells(int row, String time) {
+    return List.of(
+        new SheetStore.Cell(Constants.kMainSheet, row, Constants.kLastLoginColumn, time),
+        new SheetStore.Cell(Constants.kMainSheet, row, Constants.kLoggedInColumn, "TRUE"),
+        new SheetStore.Cell(Constants.kMainSheet, row, Constants.kLastLogoutColumn, "LOGGED IN"));
   }
 }

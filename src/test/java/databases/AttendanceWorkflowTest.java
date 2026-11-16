@@ -64,6 +64,21 @@ class AttendanceWorkflowTest {
   }
 
   @Test
+  void onboardingCreatesTheMemberAndChecksInWithOneWrite() {
+    InMemorySheetStore store = new InMemorySheetStore();
+    UserActivity users = new UserActivity(new DatabaseUtils(store));
+    MemberRegistration member = new MemberRegistration("Test", "Member", "test@example.com");
+    assertEquals(UserActivity.AttendanceStatus.UNREGISTERED, users.attendanceStatus("001234"));
+    int writesBefore = store.writes.size();
+    users.registerAndCheckIn(member, "001234");
+    assertEquals(writesBefore + 1, store.writes.size());
+    assertEquals(UserActivity.AttendanceStatus.CHECKED_IN, users.attendanceStatus("001234"));
+    assertEquals(List.of("001234", "Test", "Member"), store.read(1).get(1));
+    assertThrows(IllegalArgumentException.class, () -> users.registerAndCheckIn(member, "001234"));
+    assertEquals(writesBefore + 1, store.writes.size());
+  }
+
+  @Test
   void legacySheetKeepsHistoricalColumnsAndMapsLoginAndLogout() {
     InMemorySheetStore store = new InMemorySheetStore();
     List<Object> headers = new ArrayList<>(CurrentSheetLayout.HEADERS.subList(0, 4));
@@ -234,7 +249,9 @@ class AttendanceWorkflowTest {
 
     assertEquals("10:00:00", store.read(1).get(1).get(3));
     assertEquals("", store.read(1).get(0).get(3));
-    assertEquals(LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy:MM:dd")), store.read(1).get(0).get(4));
+    assertEquals(
+        LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy:MM:dd")),
+        store.read(1).get(0).get(4));
     assertEquals("01:00:00", store.read(1).get(1).get(4));
     assertEquals("01:00:00", store.read(0).get(1).get(Constants.kTotalHoursColumn));
   }

@@ -1,8 +1,8 @@
 package scenes;
 
 import activities.LocalDbActivity;
+import activities.MemberRegistration;
 import activities.UserActivity;
-import exceptions.CancelledUserCreationException;
 import helpers.AlertUtils;
 import javafx.concurrent.Task;
 import javafx.scene.layout.GridPane;
@@ -36,18 +36,20 @@ public class KioskScene {
       view.focusInput();
       return;
     }
-    if (!LocalDbActivity.kHandsFreeMode
-        && !new AlertUtils().confirmInput("Confirm attendance for member ID " + id + ".")) {
-      view.setStatus("", false);
-      view.focusInput();
-      return;
-    }
     view.setBusy(true);
     Task<String> task =
         new Task<>() {
           @Override
-          protected String call() throws Exception {
-            if (users.isUserLoggedIn(id)) {
+          protected String call() {
+            UserActivity.AttendanceStatus status = users.attendanceStatus(id);
+            if (status == UserActivity.AttendanceStatus.UNREGISTERED) {
+              return null;
+            }
+            if (!LocalDbActivity.kHandsFreeMode
+                && !new AlertUtils().confirmInput("Confirm attendance for member ID " + id + ".")) {
+              return "";
+            }
+            if (status == UserActivity.AttendanceStatus.CHECKED_IN) {
               return users.logoutUser(id);
             }
             users.loginUser(id);
@@ -56,25 +58,58 @@ public class KioskScene {
         };
     task.setOnSucceeded(
         event -> {
-          view.setBusy(false);
-          view.setStatus(task.getValue(), false);
-          view.clearAndFocus();
+          String message = task.getValue();
+          if (message == null) {
+            view.showRegistration(
+                id, member -> register(id, member), () -> view.finishRegistration(""));
+          } else if (message.isEmpty()) {
+            view.setBusy(false);
+            view.setStatus("", false);
+            view.focusInput();
+          } else {
+            view.finishRegistration(message);
+          }
         });
     task.setOnFailed(
         event -> {
           view.setBusy(false);
-          Throwable failure = task.getException();
-          if (failure instanceof CancelledUserCreationException) {
-            view.setStatus("Registration cancelled. Enter an ID when you're ready.", false);
-          } else if (failure instanceof IllegalArgumentException
-              || failure instanceof IllegalStateException) {
-            view.setStatus(failure.getMessage(), true);
-          } else {
-            view.setStatus(
-                "Attendance could not be saved. Check your connection and try again.", true);
-          }
+          view.setStatus(
+              failureMessage(
+                  task.getException(),
+                  "Attendance could not be saved. Check your connection and try again."),
+              true);
           view.focusInput();
         });
+    start(task);
+  }
+
+  private void register(String id, MemberRegistration member) {
+    view.setRegistrationBusy();
+    Task<Void> task =
+        new Task<>() {
+          @Override
+          protected Void call() {
+            users.registerAndCheckIn(member, id);
+            return null;
+          }
+        };
+    task.setOnSucceeded(event -> view.finishRegistration("You're registered and checked in."));
+    task.setOnFailed(
+        event ->
+            view.showRegistrationError(
+                failureMessage(
+                    task.getException(),
+                    "Registration could not be confirmed. Check your connection and try again.")));
+    start(task);
+  }
+
+  private static String failureMessage(Throwable failure, String fallback) {
+    return failure instanceof IllegalArgumentException || failure instanceof IllegalStateException
+        ? failure.getMessage()
+        : fallback;
+  }
+
+  private static void start(Task<?> task) {
     Thread worker = new Thread(task, "attendance");
     worker.setDaemon(true);
     worker.start();

@@ -42,7 +42,7 @@ public class LogoutActivity {
       }
     }
     if (dateColumn < 0) {
-      dateColumn = Math.max(3, dates.size());
+      dateColumn = Math.max(3, database.logWidth());
       writes.add(new SheetStore.Cell(Constants.kLogSheet, 0, dateColumn, today));
     }
     Duration day =

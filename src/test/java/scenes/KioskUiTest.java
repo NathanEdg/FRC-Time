@@ -2,15 +2,13 @@ package scenes;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import helpers.AlertUtils;
+import activities.MemberRegistration;
 import helpers.Constants;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
@@ -18,11 +16,8 @@ import javafx.geometry.Bounds;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
-import javafx.scene.control.DialogPane;
 import javafx.scene.control.TextField;
 import javafx.stage.Stage;
-import javafx.stage.Window;
-import javafx.util.Duration;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -141,54 +136,48 @@ class KioskUiTest {
   }
 
   @Test
-  void registrationHasOnlyThreeFieldsAndClosingCancelsSafely() throws Exception {
+  void registrationValidatesDetailsAndReturnsToKiosk() throws Exception {
     fx(
         () -> {
-          Stage owner = new Stage();
-          owner.setScene(new Scene(new javafx.scene.layout.VBox(), 300, 200));
-          owner.show();
-          AlertUtils.stage = owner;
-          AtomicReference<Throwable> assertions = new AtomicReference<>();
-          PauseTransition inspect = new PauseTransition(Duration.millis(200));
-          inspect.setOnFinished(
-              event -> {
-                Stage dialog =
-                    Window.getWindows().stream()
-                        .filter(window -> window != owner && window instanceof Stage)
-                        .map(window -> (Stage) window)
-                        .findFirst()
-                        .orElseThrow();
-                try {
-                  DialogPane pane = (DialogPane) dialog.getScene().getRoot();
-                  List<TextField> fields =
-                      pane.lookupAll(".text-field").stream().map(node -> (TextField) node).toList();
-                  assertEquals(3, fields.size());
-                  assertTrue(pane.lookupAll(".radio-button").isEmpty());
-                  Button create = (Button) pane.lookupButton(pane.getButtonTypes().get(0));
-                  assertTrue(create.isDisabled());
-                  TextField first = (TextField) pane.lookup("#firstName");
-                  TextField last = (TextField) pane.lookup("#lastName");
-                  TextField email = (TextField) pane.lookup("#email");
-                  first.setText("Test");
-                  last.setText("Member");
-                  email.setText("test@example.com");
-                  assertFalse(create.isDisabled());
-                  email.setText("invalid");
-                  assertTrue(create.isDisabled());
-                  email.setText("test@example.com");
-                  capture(pane, "registration.png");
-                } catch (Throwable failure) {
-                  assertions.set(failure);
-                } finally {
-                  dialog.close();
-                }
-              });
-          inspect.play();
-          assertTrue(new AlertUtils().getUserInfo().isEmpty());
-          owner.close();
-          if (assertions.get() != null) {
-            throw new AssertionError(assertions.get());
-          }
+          KioskView view = new KioskView(true);
+          Stage stage = new Stage();
+          Scene scene = new Scene(view, 420, 720);
+          scene
+              .getStylesheets()
+              .add(KioskUiTest.class.getResource("/" + Constants.kRootStylesheet).toExternalForm());
+          stage.setScene(scene);
+          stage.show();
+          AtomicReference<MemberRegistration> submitted = new AtomicReference<>();
+          view.showRegistration("001234", submitted::set, () -> view.finishRegistration(""));
+          view.applyCss();
+          view.layout();
+          assertNull(view.lookup("#memberId"));
+          assertEquals(3, view.lookupAll(".text-field").size());
+          Button create = (Button) view.lookup("#registerMember");
+          Button back = (Button) view.lookup("#cancelRegistration");
+          TextField first = (TextField) view.lookup("#firstName");
+          TextField last = (TextField) view.lookup("#lastName");
+          TextField email = (TextField) view.lookup("#email");
+          first.setText("Test");
+          last.setText("Member");
+          email.setText("invalid");
+          assertTrue(create.isDisabled());
+          email.setText("test@example.com");
+          assertFalse(create.isDisabled());
+          view.setRegistrationBusy();
+          assertTrue(create.isDisabled());
+          assertTrue(back.isDisabled());
+          view.showRegistrationError("Try again.");
+          assertEquals("test@example.com", email.getText());
+          create.fire();
+          assertEquals(
+              new MemberRegistration("Test", "Member", "test@example.com"), submitted.get());
+          assertFits(view, first, last, email, create, back);
+          capture(view, "registration.png");
+          back.fire();
+          assertNull(view.lookup("#registration"));
+          assertEquals("", ((TextField) view.lookup("#memberId")).getText());
+          stage.close();
         });
   }
 }
