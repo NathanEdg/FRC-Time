@@ -88,7 +88,7 @@ tasks.register('macAppImage', Exec) {
                 '--main-class', application.mainClass.get(),
                 '--dest', macImage.get().asFile.absolutePath,
                 '--mac-package-identifier', 'org.team293.time',
-                '--add-modules', 'java.se,jdk.crypto.ec,jdk.unsupported,jdk.localedata',
+                '--add-modules', 'java.se,jdk.crypto.ec,jdk.unsupported,jdk.localedata,jdk.httpserver',
                 '--java-options', '-Dfile.encoding=UTF-8'
     }
 }
