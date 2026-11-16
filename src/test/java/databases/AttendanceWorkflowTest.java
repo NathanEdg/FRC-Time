@@ -74,7 +74,8 @@ class AttendanceWorkflowTest {
     assertEquals(writesBefore + 1, store.writes.size());
     assertEquals(UserActivity.AttendanceStatus.CHECKED_IN, users.attendanceStatus("00123456"));
     assertEquals(List.of("00123456", "Test", "Member"), store.read(1).get(1));
-    assertThrows(IllegalArgumentException.class, () -> users.registerAndCheckIn(member, "00123456"));
+    assertThrows(
+        IllegalArgumentException.class, () -> users.registerAndCheckIn(member, "00123456"));
     assertEquals(writesBefore + 1, store.writes.size());
   }
 
