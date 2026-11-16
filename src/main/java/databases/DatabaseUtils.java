@@ -108,12 +108,7 @@ public class DatabaseUtils {
   }
 
   public int nextEmptyCellColumn(int page) {
-    List<String> ids = getColumnData(Constants.kStudentIdColumn, page);
-    for (int i = 1; i < ids.size(); i++) {
-      if (ids.get(i).isEmpty()) {
-        return i;
-      }
-    }
-    return ids.size();
+    // A blank ID can belong to a partially cleared record; never reuse historical rows.
+    return (page == Constants.kMainSheet ? current : log).size();
   }
 }

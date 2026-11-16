@@ -1,44 +1,121 @@
-name: CI
+name: Build and Release
 
-on: [pull_request, push]
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
-  check-format:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-java@v2
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-      - name: Check Spotless
-        shell: bash
-        run: |
-          chmod +x ./gradlew
-          ./gradlew spotlessApply
   build:
-    name: "Build on ${{ matrix.os }} with Java ${{ matrix.jvm }}"
-    runs-on: "${{ matrix.os }}-latest"
+    name: Verify and build ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu, windows, macos]
-        jvm: ['11', '17']
+        include:
+          - runner: ubuntu-24.04
+            platform: linux-x64
+            java-arch: x64
+          - runner: macos-15
+            platform: macos-arm64
+            java-arch: aarch64
+          - runner: macos-15-intel
+            platform: macos-x64
+            java-arch: x64
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-java@v2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
-          distribution: 'temurin'
-          java-version: ${{ matrix.jvm }}
-      - name: Fix permissions
-        if: ${{ matrix.os }} == "ubuntu" || ${{ matrix.os }} == "macos"
+          distribution: temurin
+          java-version: '21'
+          architecture: ${{ matrix.java-arch }}
+      - uses: gradle/actions/setup-gradle@4c125117fe7c5aed11272ec4213f602f012f89f2 # v5
+      - name: Install Linux display dependencies
+        if: runner.os == 'Linux'
         run: |
-          chmod +x ./gradlew
-      - name: Build ShadowJar
+          sudo apt-get update
+          sudo apt-get install --yes xvfb libgtk-3-0t64 libasound2t64
+      - name: Check formatting, unit tests, UI tests, and distributions
+        shell: bash
         run: |
-          ./gradlew shadowJar
-      - name: Publish ShadowJar
-        uses: actions/upload-artifact@v2
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            xvfb-run -a ./gradlew --no-daemon check uiTest installDist shadowJar
+          else
+            ./gradlew --no-daemon check uiTest installDist shadowJar
+          fi
+      - name: Build macOS application and DMG
+        if: runner.os == 'macOS'
+        run: ./gradlew --no-daemon macDmg
+      - name: Smoke-test bundled macOS runtime
+        if: runner.os == 'macOS'
+        run: bash scripts/smoke-test.sh 'build/macos/image/Team 293 Time.app/Contents/MacOS/Team 293 Time'
+      - name: Smoke-test JAR on Java 21
+        shell: bash
+        run: |
+          jars=(build/libs/*-all.jar)
+          [[ ${#jars[@]} == 1 && -f "${jars[0]}" ]]
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            xvfb-run -a bash scripts/smoke-test.sh java -jar "${jars[0]}"
+          else
+            bash scripts/smoke-test.sh java -jar "${jars[0]}"
+          fi
+      - name: Stage release binaries
+        shell: bash
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          version=$(tr -d '\r\n' < version.txt)
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          jars=(build/libs/*-all.jar)
+          [[ ${#jars[@]} == 1 && -f "${jars[0]}" ]]
+          mkdir -p build/release
+          cp "${jars[0]}" "build/release/Team-293-Time-${version}-${PLATFORM}.jar"
+          if [[ "$RUNNER_OS" == macOS ]]; then
+            cp "build/macos/installer/Team 293 Time-${version}.dmg" \
+              "build/release/Team-293-Time-${version}-${PLATFORM}-unsigned.dmg"
+          fi
+      - name: Install Java 17 for compatibility smoke test
+        if: runner.os == 'Linux'
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
-          name: grizzlytime-ci-jar
-          path: build/libs/
+          distribution: temurin
+          java-version: '17'
+          architecture: x64
+      - name: Verify Java 17 JAR compatibility
+        if: runner.os == 'Linux'
+        run: xvfb-run -a bash scripts/smoke-test.sh java -jar build/release/*.jar
+      - name: Upload verified release binaries
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: binaries-${{ matrix.platform }}
+          path: build/release/*
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish verified main commit
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    # Only serialize retries of the same commit, never different commits.
+    concurrency:
+      group: release-${{ github.repository }}-${{ github.sha }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          pattern: binaries-*
+          merge-multiple: true
+          path: build/release
+      - name: Publish complete release with checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/publish-release.sh

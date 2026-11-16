@@ -2,10 +2,13 @@ import activities.LocalDbActivity;
 import helpers.AlertUtils;
 import helpers.Constants;
 import helpers.InputValidation;
+import javafx.animation.PauseTransition;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 import scenes.KioskView;
 
 public class PreviewApplication extends Application {
@@ -26,7 +29,7 @@ public class PreviewApplication extends Application {
         id -> {
           if (!InputValidation.isValidId(
               id, LocalDbActivity.kIdLength, LocalDbActivity.kIdLengthFallback)) {
-            view.setStatus("Enter a 6- or 7-digit member ID to preview registration.", true);
+            view.setStatus("Enter a member ID with " + KioskView.memberIdFormat() + ".", true);
             return;
           }
           new AlertUtils()
@@ -47,5 +50,16 @@ public class PreviewApplication extends Application {
     new activities.KeyActivity().setKeyHandlers(scene, stage);
     stage.show();
     view.clearAndFocus();
+    if (getParameters().getRaw().contains("--smoke-test")) {
+      PauseTransition ready = new PauseTransition(Duration.millis(250));
+      ready.setOnFinished(
+          event -> {
+            view.applyCss();
+            view.layout();
+            System.out.println("PREVIEW_READY");
+            Platform.exit();
+          });
+      ready.play();
+    }
   }
 }

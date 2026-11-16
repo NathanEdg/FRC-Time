@@ -17,8 +17,8 @@ import javafx.util.Duration;
 
 public class KioskView extends VBox {
   private final TextField memberId = new TextField();
-  private final Button confirm = new Button("Check in / out");
-  private final Label status = new Label("Ready for your ID");
+  private final Button confirm = new Button("Check in or out");
+  private final Label status = new Label();
   private final Label connection = new Label();
   private final Hyperlink about = new Hyperlink("About");
   private final Hyperlink fullscreen = new Hyperlink("Full screen");
@@ -28,16 +28,12 @@ public class KioskView extends VBox {
     setId("kiosk");
     setFillWidth(true);
 
-    ImageView mark = logo(52);
+    ImageView mark = logo(44);
     Label appName = new Label(Constants.kApplicationName);
     appName.getStyleClass().add("app-name");
     Label team = new Label(Constants.kTeamName);
     team.getStyleClass().add("muted");
     VBox identity = new VBox(3, appName, team);
-    HBox header = new HBox(14, mark, identity);
-    header.setAlignment(Pos.CENTER_LEFT);
-    header.getStyleClass().add("app-header");
-
     Label date = new Label();
     date.getStyleClass().add("meeting-date");
     Runnable updateClock =
@@ -58,59 +54,56 @@ public class KioskView extends VBox {
               }
             });
 
-    ImageView teamLogo = logo(144);
-    Label heading = new Label("Check in or check out");
+    Region headerSpacer = new Region();
+    HBox.setHgrow(headerSpacer, Priority.ALWAYS);
+    HBox header = new HBox(12, mark, identity, headerSpacer, date);
+    header.setAlignment(Pos.CENTER_LEFT);
+    header.getStyleClass().add("app-header");
+
+    Label heading = new Label("Meeting attendance");
     heading.getStyleClass().add("heading");
     heading.setWrapText(true);
-    heading.setAlignment(Pos.CENTER);
     heading.setMaxWidth(Double.MAX_VALUE);
-    Label instruction = new Label("Scan your badge or enter your member ID.");
+    Label instruction = new Label("Use your member ID to check in or out.");
     instruction.getStyleClass().add("instruction");
     instruction.setWrapText(true);
-    instruction.setAlignment(Pos.CENTER);
     instruction.setMaxWidth(Double.MAX_VALUE);
+    VBox introduction = new VBox(8, heading, instruction);
 
     Label idLabel = new Label("Member ID");
     idLabel.setLabelFor(memberId);
     idLabel.getStyleClass().add("field-label");
     memberId.setId("memberId");
-    memberId.setPromptText("Enter your ID");
+    memberId.setPromptText(memberIdFormat());
     memberId.setAccessibleText("Member ID");
     memberId.setTextFormatter(
         new TextFormatter<String>(
             change -> change.getControlNewText().matches("[0-9]{0,18}") ? change : null));
     memberId.setMaxWidth(Double.MAX_VALUE);
+    memberId.setMinHeight(60);
     confirm.setId("checkIn");
     confirm.setDefaultButton(true);
     confirm.setMaxWidth(Double.MAX_VALUE);
-    HBox entry = new HBox(12, memberId, confirm);
-    HBox.setHgrow(memberId, Priority.ALWAYS);
-    memberId.setPrefWidth(300);
-    confirm.setMinWidth(148);
-    VBox form = new VBox(8, idLabel, entry);
+    confirm.setMinHeight(54);
+    VBox form = new VBox(10, idLabel, memberId, confirm);
     form.getStyleClass().add("entry-form");
 
     status.setId("status");
     status.getStyleClass().add("status");
     status.setWrapText(true);
-    status.setAlignment(Pos.CENTER);
     status.setMaxWidth(Double.MAX_VALUE);
-    status.setMinHeight(72);
+    status.setMinHeight(48);
     status.setAccessibleRole(javafx.scene.AccessibleRole.TEXT);
 
-    String lengths =
-        LocalDbActivity.kIdLength == LocalDbActivity.kIdLengthFallback
-            ? LocalDbActivity.kIdLength + "-digit"
-            : LocalDbActivity.kIdLength + "- or " + LocalDbActivity.kIdLengthFallback + "-digit";
-    Label firstTime = new Label("New to the team? Enter an unused " + lengths + " ID to register.");
+    Label firstTime = new Label("First time here? Enter your ID to register.");
     firstTime.getStyleClass().add("first-time");
     firstTime.setWrapText(true);
-    firstTime.setAlignment(Pos.CENTER);
     firstTime.setMaxWidth(Double.MAX_VALUE);
 
-    VBox work = new VBox(12, date, teamLogo, heading, instruction, form, status, firstTime);
-    work.setAlignment(Pos.CENTER);
-    work.setMaxWidth(560);
+    VBox feedback = new VBox(8, status, firstTime);
+    VBox work = new VBox(24, introduction, form, feedback);
+    work.setAlignment(Pos.CENTER_LEFT);
+    work.setMaxWidth(480);
     StackPane center = new StackPane(work);
     center.getStyleClass().add("work-area");
     VBox.setVgrow(center, Priority.ALWAYS);
@@ -130,13 +123,20 @@ public class KioskView extends VBox {
         .addListener(
             (observable, previous, width) -> {
               boolean compact = width.doubleValue() < 600;
-              teamLogo.setFitHeight(compact ? 104 : 144);
+              date.setVisible(!compact);
+              date.setManaged(!compact);
               if (compact && !getStyleClass().contains("compact")) {
                 getStyleClass().add("compact");
               } else if (!compact) {
                 getStyleClass().remove("compact");
               }
             });
+  }
+
+  public static String memberIdFormat() {
+    return LocalDbActivity.kIdLength == LocalDbActivity.kIdLengthFallback
+        ? LocalDbActivity.kIdLength + " digits"
+        : LocalDbActivity.kIdLength + " or " + LocalDbActivity.kIdLengthFallback + " digits";
   }
 
   public static ImageView logo(double height) {
@@ -169,9 +169,11 @@ public class KioskView extends VBox {
   public void setBusy(boolean busy) {
     memberId.setDisable(busy);
     confirm.setDisable(busy);
-    confirm.setText(busy ? "Saving…" : "Check in / out");
+    confirm.setText(busy ? "Saving…" : "Check in or out");
+    status.getStyleClass().remove("saving");
     if (busy) {
-      setStatus("Saving your attendance…", false);
+      setStatus("Saving attendance…", false);
+      status.getStyleClass().add("saving");
     }
   }
 

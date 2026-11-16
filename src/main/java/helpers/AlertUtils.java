@@ -50,6 +50,14 @@ public class AlertUtils {
         .getStylesheets()
         .add(getClass().getResource("/" + Constants.kRootStylesheet).toExternalForm());
     dialog.getDialogPane().getStyleClass().add("team-dialog");
+    dialog.setOnShowing(
+        event -> {
+          for (ButtonType type : dialog.getDialogPane().getButtonTypes()) {
+            if (type.getButtonData() == ButtonBar.ButtonData.CANCEL_CLOSE) {
+              dialog.getDialogPane().lookupButton(type).getStyleClass().add("secondary-button");
+            }
+          }
+        });
     ImageView logo = new ImageView(new Image(Constants.kTeamLogo));
     logo.setPreserveRatio(true);
     logo.setFitWidth(54);
@@ -62,8 +70,9 @@ public class AlertUtils {
   public Optional<MemberRegistration> getUserInfo() {
     return onFxThread(
         () -> {
-          Dialog<ButtonType> dialog = dialog("Join Team 293 Time", "Welcome to SPIKE");
-          ButtonType create = new ButtonType("Create account", ButtonBar.ButtonData.OK_DONE);
+          Dialog<ButtonType> dialog = dialog("New member", "Add your details");
+          dialog.getDialogPane().setPrefWidth(400);
+          ButtonType create = new ButtonType("Register", ButtonBar.ButtonData.OK_DONE);
           dialog.getDialogPane().getButtonTypes().addAll(create, ButtonType.CANCEL);
           GridPane form = registrationForm();
           TextField first = (TextField) form.lookup("#firstName");
@@ -93,21 +102,23 @@ public class AlertUtils {
 
   public static GridPane registrationForm() {
     GridPane form = new GridPane();
-    form.setHgap(16);
-    form.setVgap(12);
+    form.setVgap(8);
     form.setPadding(new Insets(12, 0, 12, 0));
     String[] labels = {"First name", "Last name", "Email"};
     String[] ids = {"firstName", "lastName", "email"};
-    String[] prompts = {"First name", "Last name", "you@example.com"};
+    String[] prompts = {"", "", "you@example.com"};
     for (int i = 0; i < labels.length; i++) {
       Label label = new Label(labels[i]);
+      label.getStyleClass().add("field-label");
       TextField field = new TextField();
       field.setId(ids[i]);
       field.setPromptText(prompts[i]);
       field.setPrefColumnCount(22);
+      field.setMaxWidth(Double.MAX_VALUE);
+      GridPane.setHgrow(field, javafx.scene.layout.Priority.ALWAYS);
       label.setLabelFor(field);
-      form.add(label, 0, i);
-      form.add(field, 1, i);
+      form.add(label, 0, i * 2);
+      form.add(field, 0, i * 2 + 1);
     }
     return form;
   }

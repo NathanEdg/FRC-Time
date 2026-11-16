@@ -5,7 +5,7 @@ The upstream Gradle 7.3.3 build failed on the workspace's default JDK 21 with `U
 Completed checks (18 headless tests and 2 native UI tests passed):
 
 - Headless tests: minimal schema creation, idempotent configuration, safe invalid-header rejection, legacy column mapping, registration fields, duplicate IDs, numeric IDs and leading zeroes, exact time accumulation, failed saves, and spreadsheet-link validation.
-- Native JavaFX checks: desktop and narrow layouts, scanner-style numeric entry, busy/error state, registration validation, and closing the registration window.
+- Native JavaFX checks: desktop, narrow, and wide layouts, typed numeric entry with leading zeroes, button and Enter submission, busy/error state, suppression of repeated submissions while saving, registration validation, and closing the registration window.
 - Google client request tests use an in-process mock HTTP transport to check cross-sheet A1 ranges, append-only grid growth, and sanitized API failures.
 - `check`, `uiTest`, distribution generation, and preview launch pass on the development platform.
 

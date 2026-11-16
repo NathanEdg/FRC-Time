@@ -32,19 +32,13 @@ public class KioskScene {
 
   private void submit(String id) {
     if (!users.isValidID(id)) {
-      view.setStatus(
-          "Enter a "
-              + LocalDbActivity.kIdLength
-              + "- or "
-              + LocalDbActivity.kIdLengthFallback
-              + "-digit member ID.",
-          true);
+      view.setStatus("Enter a member ID with " + KioskView.memberIdFormat() + ".", true);
       view.focusInput();
       return;
     }
     if (!LocalDbActivity.kHandsFreeMode
         && !new AlertUtils().confirmInput("Confirm attendance for member ID " + id + ".")) {
-      view.setStatus("Ready for your ID", false);
+      view.setStatus("", false);
       view.focusInput();
       return;
     }
@@ -57,7 +51,7 @@ public class KioskScene {
               return users.logoutUser(id);
             }
             users.loginUser(id);
-            return "You're checked in. Have a great meeting!";
+            return "You're checked in.";
           }
         };
     task.setOnSucceeded(

@@ -13,6 +13,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
+import javafx.event.ActionEvent;
+import javafx.geometry.Bounds;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -74,8 +76,16 @@ class KioskUiTest {
     }
   }
 
+  private static void assertFits(KioskView view, Node... nodes) {
+    for (Node node : nodes) {
+      Bounds bounds = view.sceneToLocal(node.localToScene(node.getBoundsInLocal()));
+      assertTrue(bounds.getMinX() >= 0 && bounds.getMaxX() <= view.getWidth() + 1);
+      assertTrue(bounds.getMinY() >= 0 && bounds.getMaxY() <= view.getHeight() + 1);
+    }
+  }
+
   @Test
-  void nativeKioskSupportsScannerEntryBusyErrorAndWindowSizes() throws Exception {
+  void nativeKioskSupportsKeyboardEntryBusyErrorAndWindowSizes() throws Exception {
     fx(
         () -> {
           KioskView view = new KioskView(true);
@@ -95,6 +105,9 @@ class KioskUiTest {
           id.setText("001234");
           submit.fire();
           assertEquals("001234", entered.get());
+          entered.set(null);
+          id.fireEvent(new ActionEvent());
+          assertEquals("001234", entered.get());
           id.setText("invalid");
           assertEquals("001234", id.getText());
           id.setText("");
@@ -102,6 +115,10 @@ class KioskUiTest {
           view.setBusy(true);
           assertTrue(submit.isDisabled());
           assertTrue(id.isDisabled());
+          entered.set(null);
+          id.fireEvent(new ActionEvent());
+          submit.fire();
+          assertNull(entered.get());
           capture(view, "saving.png");
           view.setBusy(false);
           view.setStatus(
@@ -112,13 +129,12 @@ class KioskUiTest {
           view.resize(420, 720);
           view.layout();
           assertTrue(view.getStyleClass().contains("compact"));
-          assertTrue(
-              submit.getBoundsInParent().getMaxX()
-                  <= submit.getParent().getLayoutBounds().getWidth() + 1);
+          assertFits(view, id, submit, view.lookup("#status"));
           capture(view, "narrow.png");
           view.resize(1280, 800);
           view.layout();
-          view.setStatus("You're checked in. Have a great meeting!", false);
+          view.setStatus("You're checked in.", false);
+          assertFits(view, id, submit, view.lookup("#status"));
           capture(view, "wide.png");
           stage.close();
         });

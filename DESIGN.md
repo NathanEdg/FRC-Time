@@ -15,11 +15,11 @@ colors:
 typography:
   headline:
     fontFamily: "System"
-    fontSize: "36px"
+    fontSize: "32px"
     fontWeight: 700
   title:
     fontFamily: "System"
-    fontSize: "23px"
+    fontSize: "20px"
     fontWeight: 700
   body:
     fontFamily: "System"
@@ -36,7 +36,7 @@ components:
     backgroundColor: "{colors.primary}"
     textColor: "{colors.charcoal}"
     rounded: "{rounded.control}"
-    padding: "16px 20px"
+    padding: "14px 18px"
   input:
     backgroundColor: "#ffffff"
     textColor: "{colors.ink}"
@@ -58,11 +58,11 @@ Gold identifies the primary action and text selection. Charcoal anchors identity
 
 ## Typography
 
-System fonts preserve native readability across platforms. App name uses the title size; the main heading reduces to 27px in compact windows. Input is 18px; supporting text is 12–14px.
+System fonts preserve native readability across platforms. App name uses the title size; the main heading reduces to 27px in compact windows. Numeric input is 22px; supporting text is 12–14px.
 
 ## Layout
 
-Default scene: 840 × 760. Minimum window: 420 × 720. Compact treatment begins below 600px. The work area is centered with a maximum width of 560px. Header and footer fill the window; full-screen operation retains the same hierarchy.
+Default scene: 840 × 760. Minimum window: 420 × 720. Compact treatment begins below 600px. The work area is centered with a maximum width of 480px and left-aligned content. The ID field and primary button stack at every size. A single team logo anchors the header; the meeting date appears beside it in wider windows. The footer uses a subtle divider; full-screen operation retains the same hierarchy.
 
 ## Elevation & Depth
 
@@ -74,9 +74,9 @@ Native buttons and text fields use gently curved corners. The official SPIKE bul
 
 ## Components
 
-Digit filtering supports keyboard and barcode input. Enter submits. Busy state disables repeat submissions. Success clears and focuses ID entry; failure retains and selects the ID for the next scan. Preview mode is labeled persistently.
+Digit filtering supports typed numeric member IDs and preserves leading zeroes. Enter submits. The field shows the configured ID lengths. Busy state disables repeat submissions. Success clears and focuses ID entry; failure retains and selects the ID for correction. Feedback space stays reserved without a redundant idle message. Preview mode is labeled persistently.
 
-Buttons have explicit hover, pressed, disabled, and keyboard-focus states. Inputs have a visible focus border. Registration uses three labeled native text fields, required-value validation, and safe cancellation. About content can scroll in narrow windows.
+Buttons have explicit hover, pressed, disabled, and keyboard-focus states without changing control dimensions. Inputs have a visible focus border. Registration uses three vertically stacked, labeled native text fields, required-value validation, and safe cancellation. Cancel uses a secondary silver treatment instead of competing with the gold primary action. About content can scroll in narrow windows.
 
 ## Do's and Don'ts
 

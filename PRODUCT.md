@@ -8,7 +8,7 @@ Desktop (JavaFX). This is a native desktop kiosk, not a website or mobile app.
 
 ## Users
 
-FRC Team 293 members entering and leaving team meetings. The existing workflow uses a keyboard or USB barcode scanner to enter a member ID.
+FRC Team 293 members entering and leaving team meetings. Members type a numeric member ID using the keyboard.
 
 ## Product Purpose
 
@@ -16,7 +16,7 @@ Record attendance and accumulated meeting time in Google Sheets. Preserve the ex
 
 ## Capabilities and Constraints
 
-- Keep Google Sheets, configurable numeric IDs, barcode input, and full-screen operation.
+- Keep Google Sheets, configurable numeric IDs, keyboard input, and full-screen operation.
 - Registration collects first name, last name, and email only. Do not collect ethnicity, role, or gender.
 - Retain compatibility with existing attendance sheets without automatically deleting historical data.
 - OAuth credentials, tokens, runtime configuration, and histories belong outside source control and release artifacts.

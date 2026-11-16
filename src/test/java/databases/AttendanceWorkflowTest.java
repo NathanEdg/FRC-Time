@@ -158,6 +158,88 @@ class AttendanceWorkflowTest {
   }
 
   @Test
+  void registrationAppendsWithoutReusingOrphanedRows() {
+    InMemorySheetStore store = new InMemorySheetStore();
+    List<Object> currentOrphan =
+        List.of(
+            "", "Former", "Member", "former@example.com", "", "", "02:00:00", "10:00:00", "FALSE");
+    List<Object> logOrphan = List.of("", "Former", "Member", "10:00:00");
+    store.sheets.put(
+        0,
+        new ArrayList<>(
+            List.of(new ArrayList<>(CurrentSheetLayout.HEADERS), new ArrayList<>(currentOrphan))));
+    store.sheets.put(
+        1,
+        new ArrayList<>(
+            List.of(
+                new ArrayList<>(CurrentSheetLayout.HEADERS.subList(0, 3)),
+                new ArrayList<>(logOrphan))));
+    DatabaseUtils database = new DatabaseUtils(store);
+
+    new UserActivity(database)
+        .createNewUser(new MemberRegistration("Test", "Member", "test@example.com"), "123456");
+
+    assertEquals(currentOrphan, store.read(0).get(1));
+    assertEquals(logOrphan, store.read(1).get(1));
+    assertEquals("123456", store.read(0).get(2).get(0));
+    assertEquals("123456", store.read(1).get(2).get(0));
+    assertEquals("00:00:00", store.read(0).get(2).get(Constants.kTotalHoursColumn));
+  }
+
+  @Test
+  void checkoutRepairDoesNotInheritOrphanedDailyHours() {
+    InMemorySheetStore store = new InMemorySheetStore();
+    DatabaseUtils database = new DatabaseUtils(store);
+    new UserActivity(database)
+        .createNewUser(new MemberRegistration("Test", "Member", "test@example.com"), "123456");
+    String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy:MM:dd"));
+    List<Object> logOrphan = List.of("", "Former", "Member", "10:00:00");
+    List<Object> logHeaders = new ArrayList<>(CurrentSheetLayout.HEADERS.subList(0, 3));
+    logHeaders.add(today);
+    store.sheets.put(1, new ArrayList<>(List.of(logHeaders, new ArrayList<>(logOrphan))));
+    database.getUpdatedData();
+
+    new LogoutActivity(database)
+        .logoutUserWithHours("123456", 1, Duration.ofHours(1), "2026-11-15T18:00:00");
+
+    assertEquals(logOrphan, store.read(1).get(1));
+    assertEquals(List.of("123456", "Test", "Member", "01:00:00"), store.read(1).get(2));
+  }
+
+  @Test
+  void rowAllocationAppendsBeyondBlankHistoricalRows() {
+    InMemorySheetStore store = new InMemorySheetStore();
+    DatabaseUtils database = new DatabaseUtils(store);
+    store.sheets.get(0).add(new ArrayList<>());
+    store
+        .sheets
+        .get(0)
+        .add(new ArrayList<>(List.of("", "", "", "", "", "", "", "", "", "", "", "historical")));
+    database.getUpdatedData();
+    assertEquals(3, database.nextEmptyCellColumn(Constants.kMainSheet));
+  }
+
+  @Test
+  void checkoutAppendsDateAfterEveryOccupiedHistoricalColumn() {
+    InMemorySheetStore store = new InMemorySheetStore();
+    DatabaseUtils database = new DatabaseUtils(store);
+    new UserActivity(database)
+        .createNewUser(new MemberRegistration("Test", "Member", "test@example.com"), "123456");
+    // The date header was cleared, but its historical hours were not.
+    store.sheets.get(1).get(1).add("10:00:00");
+    database.getUpdatedData();
+
+    new LogoutActivity(database)
+        .logoutUserWithHours("123456", 1, Duration.ofHours(1), "2026-11-15T18:00:00");
+
+    assertEquals("10:00:00", store.read(1).get(1).get(3));
+    assertEquals("", store.read(1).get(0).get(3));
+    assertEquals(LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy:MM:dd")), store.read(1).get(0).get(4));
+    assertEquals("01:00:00", store.read(1).get(1).get(4));
+    assertEquals("01:00:00", store.read(0).get(1).get(Constants.kTotalHoursColumn));
+  }
+
+  @Test
   void spreadsheetColumnEncodingWorksPastZ() {
     assertEquals("A", DatabaseProcess.toAlphabetic(0));
     assertEquals("Z", DatabaseProcess.toAlphabetic(25));
