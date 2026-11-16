@@ -35,6 +35,27 @@ public class AlertUtils {
         });
   }
 
+  public boolean confirmMeeting(String action, String pin) {
+    return onFxThread(
+        () -> {
+          Dialog<ButtonType> dialog = dialog("Manage meeting", action);
+          PasswordField input = new PasswordField();
+          input.setPromptText("Team lead PIN");
+          input.setAccessibleText("Team lead PIN");
+          dialog.getDialogPane().setContent(input);
+          ButtonType confirm = new ButtonType(action, ButtonBar.ButtonData.OK_DONE);
+          dialog.getDialogPane().getButtonTypes().addAll(confirm, ButtonType.CANCEL);
+          Platform.runLater(input::requestFocus);
+          if (dialog.showAndWait().orElse(ButtonType.CANCEL) != confirm) {
+            return false;
+          }
+          if (!pin.equals(input.getText())) {
+            throw new IllegalArgumentException("Incorrect team lead PIN.");
+          }
+          return true;
+        });
+  }
+
   private Dialog<ButtonType> dialog(String title, String header) {
     Dialog<ButtonType> dialog = new Dialog<>();
     dialog.setTitle(title);

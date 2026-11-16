@@ -16,6 +16,7 @@ public final class Constants {
 
   public static final int kMainSheet = 0;
   public static final int kLogSheet = 1;
+  public static final int kMeetingsSheet = 2;
   public static final String kConfigName = "config.json";
   public static final String kRootStylesheet = "styles/root.css";
   public static final String kApplicationIcon = "images/icon.png";

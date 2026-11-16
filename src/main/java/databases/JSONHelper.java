@@ -32,6 +32,10 @@ public class JSONHelper {
     return result;
   }
 
+  public String optionalString(String key) throws IOException {
+    return new JSONObject(Files.readString(config)).optString(key);
+  }
+
   public void editSpreadsheetId(String sheetId) throws IOException {
     if (sheetId == null || !sheetId.matches("[A-Za-z0-9_-]+")) {
       throw new IllegalArgumentException("Invalid spreadsheet ID.");

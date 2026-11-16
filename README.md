@@ -49,6 +49,7 @@ The app creates `config.json` in its data directory on first run. Template defau
 ```json
 {
   "sheet": "",
+  "meetingPin": "",
   "handsFreeMode": "false",
   "idLength": "6",
   "idLengthFallback": "7",
@@ -59,6 +60,14 @@ The app creates `config.json` in its data directory on first run. Template defau
 The default ID settings accept 6 to 8 digits. Custom ID settings accept the two configured lengths. IDs retain leading zeroes. Hands-free mode removes the attendance confirmation dialog; an unrecognized ID opens the registration screen. New members enter their first name, last name, and email, then select **Register and check in** to save their details and start attendance. F11 or **Full screen** toggles kiosk mode. A custom stylesheet can be placed at `<data directory>/styles/style.css`.
 
 Credentials and OAuth tokens are loaded only at runtime and are excluded from distributions. The fork does not prompt users to install upstream GrizzlyTime releases.
+
+## Meeting hours
+
+Set `meetingPin` in `~/.team293-time/config.json` to a quoted 6–12 digit PIN and restart. Keep that file on the kiosk. Team leads use **Start meeting** and **End meeting** on the attendance screen and enter the PIN for either action. Members can register, check in, and check out during an active meeting.
+
+Ending the meeting also checks out everyone still checked in. The **Meetings** tab records each start, end, and duration. The kiosk shows the sum of completed meetings separately from individual attendance hours. Multiple meetings on the same date are recorded separately and member hours are added to that date's total. Meetings that cross midnight use their start date for attendance. The active meeting survives app restarts. Existing open check-ins from before this update are cleared when the first managed meeting starts.
+
+Use one active kiosk per spreadsheet to avoid concurrent edits.
 
 ## Sheet layout and existing data
 

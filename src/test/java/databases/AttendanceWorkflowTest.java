@@ -4,11 +4,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import activities.LoginActivity;
 import activities.LogoutActivity;
+import activities.MeetingActivity;
 import activities.MemberRegistration;
 import activities.UserActivity;
 import helpers.Constants;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -77,6 +79,42 @@ class AttendanceWorkflowTest {
     assertThrows(
         IllegalArgumentException.class, () -> users.registerAndCheckIn(member, "00123456"));
     assertEquals(writesBefore + 1, store.writes.size());
+  }
+
+  @Test
+  void meetingPersistsAndEndsAllAttendanceInOneWrite() {
+    InMemorySheetStore store = new InMemorySheetStore();
+    DatabaseUtils database = new DatabaseUtils(store);
+    UserActivity users = new UserActivity(database);
+    MeetingActivity meetings = users.meetings();
+    LocalDateTime start = LocalDateTime.of(2026, 11, 16, 22, 0);
+    assertThrows(IllegalStateException.class, () -> meetings.status().requireActive());
+    meetings.start(start);
+    assertThrows(IllegalStateException.class, () -> meetings.start(start));
+    assertEquals(
+        start, new UserActivity(new DatabaseUtils(store)).meetings().status().requireActive());
+
+    MemberRegistration member = new MemberRegistration("Test", "Member", "test@example.com");
+    users.createNewUser(member, "123456");
+    users.createNewUser(member, "654321");
+    LoginActivity login = new LoginActivity(database);
+    login.loginUser(1, start.plusMinutes(15).toString());
+    login.loginUser(2, start.plusHours(1).toString());
+
+    LocalDateTime end = start.plusHours(3);
+    int before = store.writes.size();
+    store.failWrites = true;
+    assertThrows(IllegalStateException.class, () -> meetings.end(end));
+    store.failWrites = false;
+    assertTrue(meetings.status().active());
+    assertEquals(Duration.ofHours(3), meetings.end(end).total());
+    assertEquals(before + 1, store.writes.size());
+    assertEquals("2026:11:16", store.read(1).get(0).get(3));
+    assertEquals("02:45:00", store.read(1).get(1).get(3));
+    assertEquals("02:00:00", store.read(1).get(2).get(3));
+    assertEquals(UserActivity.AttendanceStatus.CHECKED_OUT, users.attendanceStatus("123456"));
+    assertEquals(Duration.ofHours(3), meetings.status().total());
+    assertThrows(IllegalStateException.class, () -> meetings.end(end));
   }
 
   @Test

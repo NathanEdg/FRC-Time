@@ -10,6 +10,7 @@ import org.json.JSONException;
 
 public class LocalDbActivity {
   public static String kSheetId = "";
+  public static String kMeetingPin = "";
   public static boolean kHandsFreeMode = false;
   public static int kIdLength = 6;
   public static int kIdLengthFallback = 7;
@@ -39,6 +40,10 @@ public class LocalDbActivity {
         }
         configuration.editSpreadsheetId(sheetId);
         kSheetId = sheetId;
+      }
+      kMeetingPin = configuration.optionalString("meetingPin");
+      if (!kMeetingPin.isEmpty() && !kMeetingPin.matches("[0-9]{6,12}")) {
+        throw new IOException("Set meetingPin in config.json to 6–12 digits.");
       }
       kHandsFreeMode = Boolean.parseBoolean(configuration.getKey("handsFreeMode"));
       kApplicationName = configuration.getKey("applicationName").replace('_', ' ');

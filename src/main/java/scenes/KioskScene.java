@@ -1,19 +1,26 @@
 package scenes;
 
 import activities.LocalDbActivity;
+import activities.MeetingActivity;
 import activities.MemberRegistration;
 import activities.UserActivity;
 import helpers.AlertUtils;
+import java.time.LocalDateTime;
+import java.util.function.Supplier;
 import javafx.concurrent.Task;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
 
 public class KioskScene {
   private final UserActivity users;
+  private final MeetingActivity meetings;
+  private MeetingActivity.Status meeting;
   private final KioskView view = new KioskView(false);
 
   public KioskScene(UserActivity users) {
     this.users = users;
+    meetings = users.meetings();
+    view.onManageMeeting(this::manageMeeting);
     view.onSubmit(this::submit);
     view.onAbout(() -> SceneManager.updateScene(2));
     view.onFullscreen(
@@ -27,7 +34,57 @@ public class KioskScene {
     GridPane.setHgrow(view, Priority.ALWAYS);
     GridPane.setVgrow(view, Priority.ALWAYS);
     root.add(view, 0, 0);
-    view.clearAndFocus();
+    refreshMeeting(meetings::status);
+  }
+
+  private void manageMeeting() {
+    if (LocalDbActivity.kMeetingPin.isEmpty()) {
+      view.setStatus("Set meetingPin in the kiosk config to enable meeting controls.", true);
+      return;
+    }
+    if (meeting == null) {
+      refreshMeeting(meetings::status);
+      return;
+    }
+    boolean ending = meeting.active();
+    try {
+      if (new AlertUtils()
+          .confirmMeeting(
+              ending ? "End meeting and check everyone out" : "Start meeting",
+              LocalDbActivity.kMeetingPin)) {
+        refreshMeeting(
+            () -> ending ? meetings.end(LocalDateTime.now()) : meetings.start(LocalDateTime.now()));
+      }
+    } catch (IllegalArgumentException e) {
+      view.setStatus(e.getMessage(), true);
+    }
+  }
+
+  private void refreshMeeting(Supplier<MeetingActivity.Status> action) {
+    view.setBusy(true);
+    Task<MeetingActivity.Status> task =
+        new Task<>() {
+          @Override
+          protected MeetingActivity.Status call() {
+            return action.get();
+          }
+        };
+    task.setOnSucceeded(
+        event -> {
+          meeting = task.getValue();
+          view.showMeetingStatus(
+              meeting.description(), meeting.active() ? "End meeting" : "Start meeting");
+          view.finishRegistration("");
+        });
+    task.setOnFailed(
+        event -> {
+          meeting = null;
+          view.showMeetingStatus("Meeting status unavailable", "Refresh meeting status");
+          view.setBusy(false);
+          view.setStatus(
+              failureMessage(task.getException(), "Could not update the meeting."), true);
+        });
+    start(task);
   }
 
   private void submit(String id) {
@@ -41,6 +98,7 @@ public class KioskScene {
         new Task<>() {
           @Override
           protected String call() {
+            LocalDateTime meetingStart = meetings.status().requireActive();
             UserActivity.AttendanceStatus status = users.attendanceStatus(id);
             if (status == UserActivity.AttendanceStatus.UNREGISTERED) {
               return null;
@@ -49,8 +107,11 @@ public class KioskScene {
                 && !new AlertUtils().confirmInput("Confirm attendance for member ID " + id + ".")) {
               return "";
             }
+            if (!meetingStart.equals(meetings.status().requireActive())) {
+              throw new IllegalStateException("The meeting changed. Enter your ID again.");
+            }
             if (status == UserActivity.AttendanceStatus.CHECKED_IN) {
-              return users.logoutUser(id);
+              return users.logoutUser(id, meetingStart);
             }
             users.loginUser(id);
             return "You're checked in.";
@@ -89,6 +150,7 @@ public class KioskScene {
         new Task<>() {
           @Override
           protected Void call() {
+            meetings.status().requireActive();
             users.registerAndCheckIn(member, id);
             return null;
           }

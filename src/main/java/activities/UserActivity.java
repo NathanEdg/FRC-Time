@@ -26,6 +26,10 @@ public class UserActivity {
     logout = new LogoutActivity(database);
   }
 
+  public MeetingActivity meetings() {
+    return new MeetingActivity(database);
+  }
+
   public enum AttendanceStatus {
     UNREGISTERED,
     CHECKED_OUT,
@@ -102,6 +106,10 @@ public class UserActivity {
   }
 
   public String logoutUser(String id) {
+    return logoutUser(id, null);
+  }
+
+  public String logoutUser(String id, LocalDateTime meetingStart) {
     int row = memberRow(id);
     LocalDateTime now = LocalDateTime.now();
     LocalDateTime started;
@@ -114,7 +122,10 @@ public class UserActivity {
           "Your check-in time is invalid. Ask a team lead to check the sheet.");
     }
     // Preserve the original forgotten-check-out policy across meeting days.
-    if (!started.toLocalDate().equals(now.toLocalDate()) || now.isBefore(started)) {
+    if (now.isBefore(started)
+        || (meetingStart == null
+            ? !started.toLocalDate().equals(now.toLocalDate())
+            : started.isBefore(meetingStart))) {
       database.write(
           List.of(
               new SheetStore.Cell(Constants.kMainSheet, row, Constants.kLoggedInColumn, "FALSE"),
@@ -123,7 +134,11 @@ public class UserActivity {
       return "Your previous meeting was still open. Check in again to start today's time.";
     }
     Duration session = Duration.between(started, now);
-    logout.logoutUserWithHours(id, row, session, now.format(TIME));
+    if (meetingStart == null) {
+      logout.logoutUserWithHours(id, row, session, now.format(TIME));
+    } else {
+      logout.saveCheckout(id, row, session, now.format(TIME), meetingStart.toLocalDate());
+    }
     return "Checked out. " + AttendanceTime.format(session) + " added to your meeting hours.";
   }
 

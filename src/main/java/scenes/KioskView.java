@@ -20,6 +20,8 @@ public class KioskView extends VBox {
   private final TextField memberId = new TextField();
   private final Button confirm = new Button("Check in or out");
   private final Label status = new Label();
+  private final Label meetingStatus = new Label();
+  private final Hyperlink meetingControl = new Hyperlink("Manage meeting");
   private final Label connection = new Label();
   private final Hyperlink about = new Hyperlink("About");
   private final Hyperlink fullscreen = new Hyperlink("Full screen");
@@ -105,6 +107,11 @@ public class KioskView extends VBox {
 
     VBox feedback = new VBox(8, status, firstTime);
     work = new VBox(24, introduction, form, feedback);
+    if (!preview) {
+      meetingStatus.getStyleClass().add("instruction");
+      meetingStatus.setWrapText(true);
+      introduction.getChildren().add(new VBox(2, meetingStatus, meetingControl));
+    }
     work.setAlignment(Pos.CENTER_LEFT);
     work.setMaxWidth(480);
     center = new StackPane(work);
@@ -164,6 +171,15 @@ public class KioskView extends VBox {
     confirm.setOnAction(event -> submit.run());
   }
 
+  void onManageMeeting(Runnable action) {
+    meetingControl.setOnAction(event -> action.run());
+  }
+
+  void showMeetingStatus(String description, String action) {
+    meetingStatus.setText(description);
+    meetingControl.setText(action);
+  }
+
   public void onAbout(Runnable action) {
     about.setOnAction(event -> action.run());
   }
@@ -193,6 +209,7 @@ public class KioskView extends VBox {
   }
 
   public void setBusy(boolean busy) {
+    meetingControl.setDisable(busy);
     about.setDisable(busy);
     memberId.setDisable(busy);
     confirm.setDisable(busy);

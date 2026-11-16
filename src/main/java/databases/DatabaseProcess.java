@@ -48,7 +48,8 @@ public class DatabaseProcess implements SheetStore {
       initializeSheets();
     } catch (IOException | GeneralSecurityException e) {
       throw new IllegalStateException(
-          "Could not connect to Google Sheets. Check credentials, sheet permissions, and internet.");
+          "Could not connect to Google Sheets. Check credentials, sheet permissions, and"
+              + " internet.");
     }
   }
 
@@ -98,7 +99,8 @@ public class DatabaseProcess implements SheetStore {
     Spreadsheet metadata =
         service.spreadsheets().get(spreadsheet).setFields("sheets.properties").execute();
     List<Request> missing = new ArrayList<>();
-    for (int page : new int[] {Constants.kMainSheet, Constants.kLogSheet}) {
+    for (int page :
+        new int[] {Constants.kMainSheet, Constants.kLogSheet, Constants.kMeetingsSheet}) {
       for (Sheet sheet : metadata.getSheets()) {
         if (pageName(page).equals(sheet.getProperties().getTitle())) {
           sheets.put(page, sheet.getProperties());
@@ -137,7 +139,8 @@ public class DatabaseProcess implements SheetStore {
       return values;
     } catch (IOException e) {
       throw new IllegalStateException(
-          "Could not read attendance. Check your internet connection and sheet permissions, then retry.");
+          "Could not read attendance. Check your internet connection and sheet permissions, then"
+              + " retry.");
     }
   }
 
@@ -223,6 +226,7 @@ public class DatabaseProcess implements SheetStore {
     return switch (page) {
       case Constants.kMainSheet -> "Current";
       case Constants.kLogSheet -> "Date Log";
+      case Constants.kMeetingsSheet -> "Meetings";
       default -> throw new IllegalArgumentException("Unknown attendance worksheet.");
     };
   }

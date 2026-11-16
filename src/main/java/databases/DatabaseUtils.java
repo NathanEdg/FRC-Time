@@ -107,6 +107,10 @@ public class DatabaseUtils {
     return getColumnData(column, page).indexOf(value);
   }
 
+  public List<List<Object>> readMeetings() {
+    return store.read(Constants.kMeetingsSheet);
+  }
+
   public int logWidth() {
     return log.stream().mapToInt(List::size).max().orElse(0);
   }

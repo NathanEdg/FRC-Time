@@ -34,7 +34,9 @@ class GoogleSheetRequestTest {
                     + "{\"properties\":{\"sheetId\":1,\"title\":\"Date Log\","
                     + "\"gridProperties\":{\"rowCount\":2000,\"columnCount\":"
                     + columns
-                    + "}}}]}";
+                    + "}}},"
+                    + "{\"properties\":{\"sheetId\":2,\"title\":\"Meetings\","
+                    + "\"gridProperties\":{\"rowCount\":2000,\"columnCount\":26}}}]}";
           } else {
             JSONObject mutation = new JSONObject(getContentAsString());
             mutations.add(mutation);

@@ -19,10 +19,46 @@ public class LogoutActivity {
   }
 
   public void logoutUserWithHours(String id, int row, Duration session, String logoutTime) {
-    int logRow = database.getCellRowFromColumn(id, Constants.kStudentIdColumn, Constants.kLogSheet);
+    saveCheckout(id, row, session, logoutTime, LocalDate.now());
+  }
+
+  void saveCheckout(String id, int row, Duration session, String logoutTime, LocalDate date) {
     List<SheetStore.Cell> writes = new ArrayList<>();
+    appendCheckout(
+        writes,
+        id,
+        row,
+        session,
+        logoutTime,
+        dateColumn(writes, date),
+        database.nextEmptyCellColumn(Constants.kLogSheet));
+    database.write(writes);
+  }
+
+  int dateColumn(List<SheetStore.Cell> writes, LocalDate meetingDate) {
+    String date = meetingDate.format(DATE);
+    List<String> dates = database.getRowData(1, Constants.kLogSheet);
+    for (int i = 3; i < dates.size(); i++) {
+      if (date.equals(dates.get(i).replace("'", ""))) {
+        return i;
+      }
+    }
+    int column = Math.max(3, database.logWidth());
+    writes.add(new SheetStore.Cell(Constants.kLogSheet, 0, column, date));
+    return column;
+  }
+
+  int appendCheckout(
+      List<SheetStore.Cell> writes,
+      String id,
+      int row,
+      Duration session,
+      String logoutTime,
+      int dateColumn,
+      int nextLogRow) {
+    int logRow = database.getCellRowFromColumn(id, Constants.kStudentIdColumn, Constants.kLogSheet);
     if (logRow < 1) {
-      logRow = database.nextEmptyCellColumn(Constants.kLogSheet);
+      logRow = nextLogRow++;
       for (int column = 0; column < 3; column++) {
         writes.add(
             new SheetStore.Cell(
@@ -31,19 +67,6 @@ public class LogoutActivity {
                 column,
                 database.getCellData(row, column, Constants.kMainSheet)));
       }
-    }
-    String today = LocalDate.now().format(DATE);
-    List<String> dates = database.getRowData(1, Constants.kLogSheet);
-    int dateColumn = -1;
-    for (int i = 3; i < dates.size(); i++) {
-      if (today.equals(dates.get(i).replace("'", ""))) {
-        dateColumn = i;
-        break;
-      }
-    }
-    if (dateColumn < 0) {
-      dateColumn = Math.max(3, database.logWidth());
-      writes.add(new SheetStore.Cell(Constants.kLogSheet, 0, dateColumn, today));
     }
     Duration day =
         AttendanceTime.parse(database.getCellData(logRow, dateColumn, Constants.kLogSheet));
@@ -65,7 +88,6 @@ public class LogoutActivity {
     writes.add(
         new SheetStore.Cell(Constants.kMainSheet, row, Constants.kLastLogoutColumn, logoutTime));
     writes.add(new SheetStore.Cell(Constants.kMainSheet, row, Constants.kLoggedInColumn, "FALSE"));
-    // Save time and check-out state together; report failure if any cell cannot be written.
-    database.write(writes);
+    return nextLogRow;
   }
 }
