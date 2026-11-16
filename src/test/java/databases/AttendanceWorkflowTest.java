@@ -68,13 +68,13 @@ class AttendanceWorkflowTest {
     InMemorySheetStore store = new InMemorySheetStore();
     UserActivity users = new UserActivity(new DatabaseUtils(store));
     MemberRegistration member = new MemberRegistration("Test", "Member", "test@example.com");
-    assertEquals(UserActivity.AttendanceStatus.UNREGISTERED, users.attendanceStatus("001234"));
+    assertEquals(UserActivity.AttendanceStatus.UNREGISTERED, users.attendanceStatus("00123456"));
     int writesBefore = store.writes.size();
-    users.registerAndCheckIn(member, "001234");
+    users.registerAndCheckIn(member, "00123456");
     assertEquals(writesBefore + 1, store.writes.size());
-    assertEquals(UserActivity.AttendanceStatus.CHECKED_IN, users.attendanceStatus("001234"));
-    assertEquals(List.of("001234", "Test", "Member"), store.read(1).get(1));
-    assertThrows(IllegalArgumentException.class, () -> users.registerAndCheckIn(member, "001234"));
+    assertEquals(UserActivity.AttendanceStatus.CHECKED_IN, users.attendanceStatus("00123456"));
+    assertEquals(List.of("00123456", "Test", "Member"), store.read(1).get(1));
+    assertThrows(IllegalArgumentException.class, () -> users.registerAndCheckIn(member, "00123456"));
     assertEquals(writesBefore + 1, store.writes.size());
   }
 

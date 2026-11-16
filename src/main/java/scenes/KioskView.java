@@ -137,6 +137,9 @@ public class KioskView extends VBox {
   }
 
   public static String memberIdFormat() {
+    if (LocalDbActivity.usesDefaultIdLengths()) {
+      return "6–8 digits";
+    }
     return LocalDbActivity.kIdLength == LocalDbActivity.kIdLengthFallback
         ? LocalDbActivity.kIdLength + " digits"
         : LocalDbActivity.kIdLength + " or " + LocalDbActivity.kIdLengthFallback + " digits";

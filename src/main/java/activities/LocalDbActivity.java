@@ -4,6 +4,7 @@ import databases.JSONHelper;
 import exceptions.JsonKeyHasNoDataException;
 import helpers.AlertUtils;
 import helpers.Constants;
+import helpers.InputValidation;
 import java.io.IOException;
 import org.json.JSONException;
 
@@ -13,6 +14,17 @@ public class LocalDbActivity {
   public static int kIdLength = 6;
   public static int kIdLengthFallback = 7;
   public static String kApplicationName = Constants.kApplicationName;
+
+  public static boolean usesDefaultIdLengths() {
+    return Math.min(kIdLength, kIdLengthFallback) == 6
+        && Math.max(kIdLength, kIdLengthFallback) == 7;
+  }
+
+  public static boolean isValidMemberId(String id) {
+    return usesDefaultIdLengths()
+        ? InputValidation.isValidId(id, 6, 7, 8)
+        : InputValidation.isValidId(id, kIdLength, kIdLengthFallback);
+  }
 
   public void updateLocalDb() throws IOException {
     JSONHelper configuration = new JSONHelper();

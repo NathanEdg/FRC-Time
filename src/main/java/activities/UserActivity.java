@@ -4,7 +4,6 @@ import databases.DatabaseUtils;
 import databases.SheetStore;
 import helpers.AttendanceTime;
 import helpers.Constants;
-import helpers.InputValidation;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -137,7 +136,6 @@ public class UserActivity {
   }
 
   public boolean isValidID(String id) {
-    return InputValidation.isValidId(
-        id, LocalDbActivity.kIdLength, LocalDbActivity.kIdLengthFallback);
+    return LocalDbActivity.isValidMemberId(id);
   }
 }

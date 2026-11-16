@@ -18,10 +18,16 @@ public final class InputValidation {
         && EMAIL.matcher(email.trim()).matches();
   }
 
-  public static boolean isValidId(String id, int length, int fallbackLength) {
-    return id != null
-        && (id.length() == length || id.length() == fallbackLength)
-        && id.matches("[0-9]+");
+  public static boolean isValidId(String id, int... lengths) {
+    if (id == null || !id.matches("[0-9]+")) {
+      return false;
+    }
+    for (int length : lengths) {
+      if (id.length() == length) {
+        return true;
+      }
+    }
+    return false;
   }
 
   public static String spreadsheetId(String input) {

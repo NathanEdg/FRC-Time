@@ -1,7 +1,6 @@
 import activities.LocalDbActivity;
 import helpers.AlertUtils;
 import helpers.Constants;
-import helpers.InputValidation;
 import javafx.animation.PauseTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -27,8 +26,7 @@ public class PreviewApplication extends Application {
     stage.setScene(scene);
     view.onSubmit(
         id -> {
-          if (!InputValidation.isValidId(
-              id, LocalDbActivity.kIdLength, LocalDbActivity.kIdLengthFallback)) {
+          if (!LocalDbActivity.isValidMemberId(id)) {
             view.setStatus("Enter a member ID with " + KioskView.memberIdFormat() + ".", true);
             return;
           }

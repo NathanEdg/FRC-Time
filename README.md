@@ -56,7 +56,7 @@ The app creates `config.json` in its data directory on first run. Template defau
 }
 ```
 
-Both ID lengths accept digits only and retain leading zeroes. Hands-free mode removes the attendance confirmation dialog; an unrecognized ID opens the registration screen. New members enter their first name, last name, and email, then select **Register and check in** to save their details and start attendance. F11 or **Full screen** toggles kiosk mode. A custom stylesheet can be placed at `<data directory>/styles/style.css`.
+The default ID settings accept 6 to 8 digits. Custom ID settings accept the two configured lengths. IDs retain leading zeroes. Hands-free mode removes the attendance confirmation dialog; an unrecognized ID opens the registration screen. New members enter their first name, last name, and email, then select **Register and check in** to save their details and start attendance. F11 or **Full screen** toggles kiosk mode. A custom stylesheet can be placed at `<data directory>/styles/style.css`.
 
 Credentials and OAuth tokens are loaded only at runtime and are excluded from distributions. The fork does not prompt users to install upstream GrizzlyTime releases.
 
